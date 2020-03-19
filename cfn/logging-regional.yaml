@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS Minimum Security Baseline (MSB) - Regional Logging Template
+  - Deploys basic audit, config and security logging in the AWS Account.
+  Note that this template contains regional services and needs to be deployed in every
+  region that you want to log in. It then sends the logs to the bucket created in
+  the Global Logging Template.
+
+Resources: 
+
+######################################################################################################################################
+# Config
+######################################################################################################################################
+
+  DeliveryChannelLogging:
+    Type: AWS::Config::DeliveryChannel
+    Properties:
+      ConfigSnapshotDeliveryProperties:
+        DeliveryFrequency: Six_Hours
+      S3BucketName: !Sub msb-logging-${AWS::AccountId}
+
+  ConfigurationRecorder:
+    Type: AWS::Config::ConfigurationRecorder
+    Properties:
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: true
+      RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/msb/msb-configrecorder-role

@@ -1,0 +1,463 @@
+Description: AWS Minimum Security Baseline (MSB) - Standard VPC Template
+  - Deploys a VPC, with a pair of public and private subnets spread
+  across one,two or three Availability Zones. It deploys an Internet Gateway, with a default
+  route on the public subnets. It deploys a pair of NAT Gateways (one in each AZ),
+  and default routes for them in the private subnets.
+
+Parameters:
+
+  VPCCIDR:
+    Description: VPC CIDR Block
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Default: 10.180.0.0/16
+
+  PublicSubnet1CIDR:
+    Description: PublicSubnet1CIDR Block
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Default: 10.180.0.0/21
+
+  PublicSubnet2CIDR:
+    Description: PublicSubnet2CIDR Block
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Default: 10.180.8.0/21
+
+  PublicSubnet3CIDR:
+    Description: PublicSubnet3CIDR CIDR Block
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Default: 10.180.16.0/21
+
+  PrivateSubnet1CIDR:
+    Description: PrivateSubnet1CIDR Block
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Default: 10.180.24.0/21
+
+  PrivateSubnet2CIDR:
+    Description: PrivateSubnet2CIDR Block
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Default: 10.180.32.0/21
+
+  PrivateSubnet3CIDR:
+    Description: PrivateSubnet3CIDR Block
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Default: 10.180.40.0/21
+
+  DeployAZTwo:
+    Description: VPC deployed in 2nd Availability Zone
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
+
+  DeployAZThree:
+    Description: VPC deployed in 3rd Availability Zone
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
+
+Conditions:
+  DeployAZTwo: !Equals [!Ref DeployAZTwo, true]
+  DeployAZThree: !Equals [!Ref DeployAZThree, true]
+
+Resources:
+
+######################################################################################################################################
+# VPC Creation
+######################################################################################################################################
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: infra-standard-vpc
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet1CIDR
+      Tags:
+        - Key: Name
+          Value: infra-public-sn-1
+
+  PublicSubnet2:
+    Condition: DeployAZTwo
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet2CIDR
+      Tags:
+        - Key: Name
+          Value: infra-public-sn-2
+
+  PublicSubnet3:
+    Condition: DeployAZThree
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet3CIDR
+      Tags:
+        - Key: Name
+          Value: infra-public-sn-3
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      Tags:
+        - Key: Name
+          Value: infra-private-sn-1
+
+  PrivateSubnet2:
+    Condition: DeployAZTwo
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      Tags:
+        - Key: Name
+          Value: infra-private-sn-2
+
+  PrivateSubnet3:
+    Condition: DeployAZThree
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      Tags:
+        - Key: Name
+          Value: infra-private-sn-3
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: infra-internet-gateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  ElasticIPNatGateway1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGatewayAZ1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt ElasticIPNatGateway1.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: infra-nat-sn-1
+
+  ElasticIPNatGateway2:
+    Condition: DeployAZTwo
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGatewayAZ2:
+    Condition: DeployAZTwo
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt ElasticIPNatGateway2.AllocationId
+      SubnetId: !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: infra-nat-sn-2
+
+  ElasticIPNatGateway3:
+    Condition: DeployAZThree
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGatewayAZ3:
+    Condition: DeployAZThree
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt ElasticIPNatGateway3.AllocationId
+      SubnetId: !Ref PublicSubnet3
+      Tags:
+        - Key: Name
+          Value: infra-nat-sn-3
+
+######################################################################################################################################
+# VPC Routes
+######################################################################################################################################
+
+  # Public Routes
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: infra-public-route-table
+
+  PublicSubnet1RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssoc:
+    Condition: DeployAZTwo
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet3RouteTableAssoc:
+    Condition: DeployAZThree
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet3
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Private Routes AZ 1
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: infra-private-route-table1
+
+  PrivateSubnet1RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+
+  PrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayAZ1
+
+  # Private Routes AZ 2
+  PrivateRouteTable2:
+    Condition: DeployAZTwo
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: infra-private-route-table-2
+
+  PrivateSubnet2RouteTableAssoc:
+    Condition: DeployAZTwo
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+
+  PrivateRoute2:
+    Condition: DeployAZTwo
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayAZ2
+
+  # Private Routes AZ 3
+  PrivateRouteTable3:
+    Condition: DeployAZThree
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: infra-private-route-table-3
+
+  PrivateSubnet3RouteTableAssoc:
+    Condition: DeployAZThree
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable3
+
+  PrivateRoute3:
+    Condition: DeployAZThree
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable3
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayAZ3
+
+######################################################################################################################################
+# VPC Flow Logs
+######################################################################################################################################
+
+  FlowLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - vpc-flow-logs.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: flowlogs-policy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - logs:DescribeLogGroups
+            - logs:DescribeLogStreams
+            Resource: !GetAtt FlowLogLogGroup.Arn
+
+  FlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 30
+      LogGroupName: /msb/vpcflowlogs
+
+  FlowLogCloudwatch:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogRole.Arn
+      LogGroupName: !Ref FlowLogLogGroup
+      ResourceId: !Ref VPC
+      ResourceType: VPC
+      TrafficType: ALL
+
+  FlowLogS3:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      LogDestination: !Sub arn:aws:s3:::msb-logging-${AWS::AccountId}
+      LogDestinationType: s3
+      ResourceId: !Ref VPC
+      ResourceType: VPC
+      TrafficType: ACCEPT
+
+Outputs:
+
+  VpcId:
+    Description: VPC ID of Standard VPC
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-vpc"
+
+  VpcCIDR:
+    Description: VPC CIDR of Standard VPC
+    Value: !Ref VPCCIDR
+    Export:
+      Name: !Sub "${AWS::StackName}-vpc-cidr"
+
+  PrivateSubnet1CIDR:
+    Description: Private subnet 1 CIDR
+    Value: !Ref PrivateSubnet1CIDR
+    Export:
+      Name: !Sub "${AWS::StackName}-private-sn-1-cidr"
+
+  PrivateSubnet2CIDR:
+    Condition: DeployAZTwo
+    Description: Private subnet 2 CIDR
+    Value: !Ref PrivateSubnet2CIDR
+    Export:
+      Name: !Sub "${AWS::StackName}-private-sn-2-cidr"
+
+  PrivateSubnet3CIDR:
+    Condition: DeployAZThree
+    Description: Private subnet 3 CIDR
+    Value: !Ref PrivateSubnet3CIDR
+    Export:
+      Name: !Sub "${AWS::StackName}-private-sn-3-cidr"
+
+  PublicSubnet1CIDR:
+    Description: Public subnet 1 CIDR
+    Value: !Ref PublicSubnet1CIDR
+    Export:
+      Name: !Sub "${AWS::StackName}-public-sn-1-cidr"
+
+  PublicSubnet2CIDR:
+    Condition: DeployAZTwo
+    Description: Public subnet 2 CIDR
+    Value: !Ref PublicSubnet2CIDR
+    Export:
+      Name: !Sub "${AWS::StackName}-public-sn-2-cidr"
+
+  PublicSubnet3CIDR:
+    Condition: DeployAZThree
+    Description: Public subnet 3 CIDR
+    Value: !Ref PublicSubnet3CIDR
+    Export:
+      Name: !Sub "${AWS::StackName}-public-sn-3-cidr"
+
+  PublicSubnet1:
+    Description: Public subnet 1
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub ${AWS::StackName}-public-sn-1
+
+  PublicSubnet2:
+    Condition: DeployAZTwo
+    Description: Public subnet 2
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub ${AWS::StackName}-public-sn-2
+
+  PublicSubnet3:
+    Condition: DeployAZThree
+    Description: Public subnet 3
+    Value: !Ref PublicSubnet3
+    Export:
+      Name: !Sub ${AWS::StackName}-public-sn-3
+
+  PrivateSubnet1:
+    Description: Private subnet 1
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub ${AWS::StackName}-private-sn-1
+
+  PrivateSubnet2:
+    Condition: DeployAZTwo
+    Description: Private subnet 2
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub ${AWS::StackName}-private-sn-2
+
+  PrivateSubnet3:
+    Condition: DeployAZThree
+    Description: Private subnet 3
+    Value: !Ref PrivateSubnet3
+    Export:
+      Name: !Sub ${AWS::StackName}-private-sn-3

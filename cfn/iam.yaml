@@ -1,0 +1,367 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: AWS Minimum Security Baseline (MSB) - IAM Groups & Roles Template 
+
+Parameters:
+
+  CreateSSMRole:
+    Type: String
+    Description: |
+      If true, creates an IAM InstanceProfile with SSM permissions that can be attached to instances
+      to use SSM Session Manager and other core features on your EC2 servers.
+    Default: false
+    AllowedValues: [true, false]
+
+  IdentityProvider:
+    Type: String
+    Description: The name of the Federated SAML provider. Leave 'aws-iam' to use AWS IAM users and groups.
+    Default: aws-iam
+
+  MaxSessionDuration:
+    Type: String
+    Description: Max federated session duration allowed on roles in seconds.
+    Default: 3600
+
+Conditions:
+  AWSIAM: !Equals [!Ref IdentityProvider, 'aws-iam']
+  FederatedIAM: !Not [Condition: AWSIAM]
+  CreateSSMRole: !Equals [!Ref CreateSSMRole, true]
+
+Resources:
+
+######################################################################################################################################
+# Human Groups/Roles & Policies
+######################################################################################################################################
+
+  GenericReadOnlyGroup:
+    Condition: AWSIAM
+    Type: AWS::IAM::Group
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+      GroupName: msb-readonly
+      Path: /msb/
+
+  GenericReadOnlyRole:
+    Condition: FederatedIAM
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Action: sts:AssumeRoleWithSAML
+          Principal: 
+            Federated: !Ref IdentityProvider
+          Condition:
+            StringEquals:
+              SAML:aud: https://signin.aws.amazon.com/saml
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+      MaxSessionDuration: !Ref MaxSessionDuration
+      RoleName: msb-readonly
+      Path: /msb/
+
+  IAMAdminGroup:
+    Condition: AWSIAM
+    Type: AWS::IAM::Group
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/IAMFullAccess
+      GroupName: msb-iam-admin
+      Path: /msb/
+
+  IAMAdminRole:
+    Condition: FederatedIAM
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Action: sts:AssumeRoleWithSAML
+          Principal: 
+            Federated: !Ref IdentityProvider
+          Condition:
+            StringEquals:
+              SAML:aud: https://signin.aws.amazon.com/saml
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/IAMFullAccess
+      MaxSessionDuration: !Ref MaxSessionDuration
+      RoleName: msb-iam-admin
+      Path: /msb/
+
+  PowerUserGroup:
+    Condition: AWSIAM
+    Type: AWS::IAM::Group
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSSupportAccess
+        - arn:aws:iam::aws:policy/PowerUserAccess
+        - !Ref PowerUserLockdownPolicy
+      GroupName: msb-poweruser
+      Path: /msb/
+
+  PowerUserRole:
+    Condition: FederatedIAM
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Action: sts:AssumeRoleWithSAML
+          Principal: 
+            Federated: !Ref IdentityProvider
+          Condition:
+            StringEquals:
+              SAML:aud: https://signin.aws.amazon.com/saml
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSSupportAccess
+        - arn:aws:iam::aws:policy/PowerUserAccess
+        - !Ref PowerUserLockdownPolicy
+      MaxSessionDuration: !Ref MaxSessionDuration
+      RoleName: msb-poweruser
+      Path: /msb/
+
+  PowerUserLockdownPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: msb-poweruser-lockdown-policy
+      Path: /msb/
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: RestrictNetworkResourcesAccess
+            Action:
+              - ec2:AttachVpnGateway
+              - ec2:CreateClientVpnEndpoint
+              - ec2:CreateClientVpnRoute
+              - ec2:CreateCustomerGateway
+              - ec2:CreateDefaultSubnet
+              - ec2:CreateDefaultVpc
+              - ec2:CreateDhcpOptions
+              - ec2:CreateEgressOnlyInternetGateway
+              - ec2:CreateFlowLogs
+              - ec2:CreateInternetGateway
+              - ec2:CreateNatGateway
+              - ec2:CreateNetworkAcl
+              - ec2:CreateNetworkAclEntry
+              - ec2:CreateRoute
+              - ec2:CreateRouteTable
+              - ec2:CreateSubnet
+              - ec2:CreateTransitGateway
+              - ec2:CreateTransitGatewayRoute
+              - ec2:CreateTransitGatewayRouteTable
+              - ec2:CreateTransitGatewayVpcAttachment
+              - ec2:CreateVpc
+              - ec2:CreateVpcEndpoint
+              - ec2:CreateVpcEndpointConnectionNotification
+              - ec2:CreateVpcEndpointServiceConfiguration
+              - ec2:CreateVpcPeeringConnection
+              - ec2:CreateVpnConnection
+              - ec2:CreateVpnConnectionRoute
+              - ec2:CreateVpnGateway
+              - ec2:DeleteClientVpnEndpoint
+              - ec2:DeleteClientVpnRoute
+              - ec2:DeleteCustomerGateway
+              - ec2:DeleteDhcpOptions
+              - ec2:DeleteEgressOnlyInternetGateway
+              - ec2:DeleteFlowLogs
+              - ec2:DeleteInternetGateway
+              - ec2:DeleteNatGateway
+              - ec2:DeleteNetworkAcl
+              - ec2:DeleteNetworkAclEntry
+              - ec2:DeleteRoute
+              - ec2:DeleteRouteTable
+              - ec2:DeleteSubnet
+              - ec2:DeleteTransitGateway
+              - ec2:DeleteTransitGatewayRoute
+              - ec2:DeleteTransitGatewayRouteTable
+              - ec2:DeleteTransitGatewayVpcAttachment
+              - ec2:DeleteVpc
+              - ec2:DeleteVpcEndpointConnectionNotifications
+              - ec2:DeleteVpcEndpointServiceConfigurations
+              - ec2:DeleteVpcEndpoints
+              - ec2:DeleteVpcPeeringConnection
+              - ec2:DeleteVpnConnection
+              - ec2:DeleteVpnConnectionRoute
+              - ec2:DeleteVpnGateway
+              - ec2:DeprovisionByoipCidr
+              - ec2:DetachClassicLinkVpc
+              - ec2:DetachInternetGateway
+              - ec2:DetachVpnGateway
+              - ec2:DisableTransitGatewayRouteTablePropagation
+              - ec2:DisableVgwRoutePropagation
+              - ec2:DisableVpcClassicLink
+              - ec2:DisableVpcClassicLinkDnsSupport
+              - ec2:DisassociateClientVpnTargetNetwork
+              - ec2:DisassociateRouteTable
+              - ec2:DisassociateSubnetCidrBlock
+              - ec2:DisassociateTransitGatewayRouteTable
+              - ec2:DisassociateVpcCidrBlock
+              - ec2:EnableTransitGatewayRouteTablePropagation
+              - ec2:EnableVgwRoutePropagation
+              - ec2:EnableVpcClassicLink
+              - ec2:EnableVpcClassicLinkDnsSupport
+              - ec2:ExportClientVpnClientConfiguration
+              - ec2:ExportTransitGatewayRoutes
+              - ec2:ImportClientVpnClientCertificateRevocationList
+              - ec2:ModifyClientVpnEndpoint
+              - ec2:ModifySubnetAttribute
+              - ec2:ModifyTransitGatewayVpcAttachment
+              - ec2:ModifyVpcAttribute
+              - ec2:ModifyVpcEndpoint
+              - ec2:ModifyVpcEndpointConnectionNotification
+              - ec2:ModifyVpcEndpointServiceConfiguration
+              - ec2:ModifyVpcEndpointServicePermissions
+              - ec2:ModifyVpcPeeringConnectionOptions
+              - ec2:ModifyVpcTenancy
+              - ec2:RejectTransitGatewayVpcAttachment
+              - ec2:RejectVpcEndpointConnections
+              - ec2:RejectVpcPeeringConnection
+              - ec2:ReplaceNetworkAclAssociation
+              - ec2:ReplaceNetworkAclEntry
+              - ec2:ReplaceRoute
+              - ec2:ReplaceRouteTableAssociation
+              - ec2:ReplaceTransitGatewayRoute
+              - ec2:RevokeClientVpnIngress
+              - ec2:TerminateClientVpnConnections
+            Effect: Deny
+            Resource: "*"
+          - Sid: RestrictCloudFormationAccess
+            Action:
+              - cloudformation:CreateChangeSet
+              - cloudformation:CreateStack
+              - cloudformation:UpdateStack
+            Effect: Deny
+            Resource: 
+              - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/msb-*"
+          - Sid: RestrictLambdaAccess
+            Action:
+              - lambda:AddPermission
+              - lambda:CreateAlias
+              - lambda:CreateEventSourceMapping
+              - lambda:CreateFunction
+              - lambda:DeleteAlias
+              - lambda:DeleteFunction
+              - lambda:DeleteFunctionConcurrency
+              - lambda:EnableReplication
+              - lambda:GetAlias
+              - lambda:InvokeAsync
+              - lambda:InvokeFunction
+              - lambda:PublishVersion
+              - lambda:PutFunctionConcurrency
+              - lambda:RemovePermission
+              - lambda:TagResource
+              - lambda:UntagResource
+              - lambda:UpdateAlias
+              - lambda:UpdateFunctionCode
+              - lambda:UpdateFunctionConfiguration
+            Effect: Deny
+            Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:msb-*"
+          - Sid: RestrictSSMAccess
+            Action:
+              - ssm:AddTagsToResource
+              - ssm:DeleteParameter
+              - ssm:DeleteParameters
+              - ssm:PutParameter
+              - ssm:RemoveTagsFromResource
+            Effect: Deny
+            Resource:
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/msb/*"
+          - Sid: RestrictIAMAccessPolicys
+            Effect: Deny
+            Action:
+              - iam:CreatePolicy
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicy
+              - iam:DeletePolicyVersion
+              - iam:SetDefaultPolicyVersion
+            Resource:
+              - !Sub "arn:aws:iam::${AWS::AccountId}:policy/msb/*"
+          - Sid: RestrictIAMIdPAccess
+            Effect: Deny
+            Action:
+              - iam:CreateSAMLProvider
+              - iam:DeleteSAMLProvider
+              - iam:UpdateSAMLProvider
+            Resource: '*'
+          - Sid: RestrictIAMAccessGroups
+            Effect: Deny
+            Action:
+              - iam:AttachRolePolicy
+              - iam:CreateRole
+              - iam:CreateServiceLinkedRole
+              - iam:DeleteRole
+              - iam:DeleteRolePermissionsBoundary
+              - iam:DeleteRolePolicy
+              - iam:DetachRolePolicy
+              - iam:PutRolePermissionsBoundary
+              - iam:PutRolePolicy
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:UpdateRole
+              - iam:UpdateRoleDescription
+            Resource:
+              - !Sub "arn:aws:iam::${AWS::AccountId}:policy/msb/*"
+          - Sid: RestrictDNSResources
+            Action:
+            - route53resolver:Associate*
+            - route53resolver:Create*
+            - route53resolver:Delete*
+            - route53resolver:Disassociate*
+            - route53resolver:Tag*
+            - route53resolver:Untag*
+            - route53resolver:Update*
+            Effect: Deny
+            Resource: "*"
+          - Sid: RestrictConfig
+            Action: "config:*"
+            Effect: Deny
+            Resource: "*"
+          # OPTIONAL: Require Permission Boundaries to prevent privilege escalation.
+          # It is a best practice to use permission boundaries, it does however limit developer ease of use
+          # since it requires all templates and commands to be updated to explicitly attach the permission boundary
+          # when roles or user are created.
+          # https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+          #
+          # - Sid: DenyIAMResourcesCreationWithoutBoundaries
+          #   Action:
+          #     - iam:CreateRole
+          #     - iam:UpdateRole
+          #     - iam:CreateUser
+          #     - iam:UpdateUser
+          #   Effect: Deny
+          #   Resource: "*"
+          #   Condition:
+          #     ArnNotEquals:
+          #       iam:PermissionsBoundary: !Sub "arn:aws:iam::${AWS::AccountId}:policy/msb/msb-poweruser-policy"
+
+######################################################################################################################################
+# Machine Roles
+######################################################################################################################################
+
+  # Systems Manager Instance Profile
+  SSMInstanceProfile:
+    Condition: CreateSSMRole
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref SSMInstanceRole
+
+  SSMInstanceRole:
+    Condition: CreateSSMRole
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Action: "sts:AssumeRole"
+          Principal:
+            Service: "ec2.amazonaws.com"
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      RoleName: msb-ssm-instance-role
+      Path: /msb/

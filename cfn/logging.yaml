@@ -1,0 +1,829 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS Minimum Security Baseline (MSB) - Global Logging Template
+  - Deploys basic audit, config and security logging in the AWS Account.
+  This creates the logging resources that work on a global level. 
+  It creates an S3-bucket in the region where you deploy it where the Multi-Region
+  CloudTrail is storing its logs. The global S3-bucket is also used for all the 
+  logging services in the Regional Logging Template which needs to be deployed in
+  every region you want to log in.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Settings
+      Parameters:
+      - EnableLogFileValidation
+      - IncludeGlobalEvents
+      - MultiRegion
+    - Label:
+        default: Notifications
+      Parameters:
+      - NotificationEmail
+    ParameterLabels:
+      NotificationEmail:
+        default: Notification Address
+
+Parameters:
+
+  NotificationEmail:
+    Type: String
+    Description: E-mail address to receive security notifications.
+
+  EnableLogFileValidation:
+    Type: String
+    Default: True
+    Description: Indicates whether CloudTrail validates the integrity of log files.
+    AllowedValues:
+      - True
+      - False
+
+  IncludeGlobalEvents:
+    Type: String
+    Default: True
+    Description: Indicates whether the CloudTrail trail is publishing events from global services, such as IAM, to the log files.
+    AllowedValues:
+      - True
+      - False
+
+  MultiRegion:
+    Type: String
+    Default: True
+    Description: Indicates whether the CloudTrail trail is created in the region in which you create the stack (false) or in all regions (true).
+    AllowedValues:
+      - True
+      - False
+
+Conditions:
+  IsMultiRegion: !Equals
+    - !Ref MultiRegion
+    - True
+
+Resources: 
+######################################################################################################################################
+# Logging Bucket and KMS Key
+######################################################################################################################################
+  LoggingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub msb-logging-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+        - Id: GlacierRule
+          Status: Enabled
+          ExpirationInDays: 20
+          Transitions:
+            - TransitionInDays: 10
+              StorageClass: Glacier
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      ObjectLockEnabled: true
+
+  LoggingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LoggingBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AWSLoggingBucketPermissionsCheck
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudtrail.amazonaws.com
+                - config.amazonaws.com
+                - delivery.logs.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !Sub "arn:aws:s3:::${LoggingBucket}"
+          - Sid: AWSLoggingBucketDelivery
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudtrail.amazonaws.com
+                - config.amazonaws.com
+                - delivery.logs.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "arn:aws:s3:::${LoggingBucket}/AWSLogs/${AWS::AccountId}/*"
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+
+  # Logging Encryption Key
+  LoggingKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-s3
+        Statement:
+          - Sid: Enable Users and Roles Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - 
+            Sid: Allow CloudTrail to encrypt logs
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudtrail.amazonaws.com
+            Action: 'kms:GenerateDataKey*'
+            Resource: '*'
+            Condition:
+              StringLike:
+                'kms:EncryptionContext:aws:cloudtrail:arn': !Sub 'arn:aws:cloudtrail:*:${AWS::AccountId}:trail/*'
+          - 
+            Sid: Allow CloudTrail to describe key
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudtrail.amazonaws.com
+            Action: 'kms:DescribeKey'
+            Resource: '*'
+          - 
+            Sid: Allow principals in the account to decrypt log files
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+              - 'kms:Decrypt'
+              - 'kms:ReEncryptFrom'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'kms:CallerAccount': !Sub ${AWS::AccountId}
+              StringLike:
+                'kms:EncryptionContext:aws:cloudtrail:arn': !Sub 'arn:aws:cloudtrail:*:${AWS::AccountId}:trail/*'
+
+
+  LoggingKMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/msb-logging-cmk
+      TargetKeyId: 
+        Ref: LoggingKMSKey
+
+######################################################################################################################################
+# CloudTrail
+######################################################################################################################################
+  TrailLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /msb/cloudtrail
+      RetentionInDays: 90
+
+  TrailLogGroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AssumeRole1
+          Effect: Allow
+          Principal:
+            Service: cloudtrail.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: cloudtrail-policy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: !GetAtt TrailLogGroup.Arn
+
+  Trail:
+    DependsOn: LoggingBucketPolicy
+    Type: AWS::CloudTrail::Trail
+    Properties:
+      S3BucketName: !Ref LoggingBucket
+      KMSKeyId: !Ref LoggingKMSKey
+      CloudWatchLogsLogGroupArn: !GetAtt TrailLogGroup.Arn
+      CloudWatchLogsRoleArn: !GetAtt TrailLogGroupRole.Arn
+      IsLogging: true
+      EnableLogFileValidation: !Ref EnableLogFileValidation
+      IncludeGlobalServiceEvents: !If
+        - IsMultiRegion
+        - true
+        - !Ref IncludeGlobalEvents
+      IsMultiRegionTrail: !Ref MultiRegion
+
+  ConfigRecorderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - config.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /msb/
+      RoleName: msb-configrecorder-role
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSConfigRole
+
+######################################################################################################################################
+# Complementing CIS Foundations Benchmark checks
+#
+# These checks are specifically using CloudWatch Metrics and Alarms to satisfy AWS Security Hub CIS Foundations validation.
+######################################################################################################################################
+
+# ------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.1   Ensure a log metric filter and alarm exist for unauthorized API calls (Scored)
+# ------------------------------------------------------------------------------------------------------------------------------------
+  UnauthorizedApiCallsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.1-UnauthorizedAPICalls
+      AlarmDescription: Alarm if Multiple unauthorized actions or logins attempted
+      MetricName: UnauthorizedAPICallsCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  UnauthorizedApiCallsFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.errorCode = "*UnauthorizedOperation") ||
+          ($.errorCode = "AccessDenied*")
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: UnauthorizedAPICallsCount
+
+# ------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.2   Ensure a log metric filter and alarm exist for Management Console sign-in without MFA (Scored)
+# ------------------------------------------------------------------------------------------------------------------------------------
+  ConsoleSigninWithoutMFAAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - UnauthorizedApiCallsAlarm
+    Properties:
+      AlarmName: CIS-3.2-ConsoleSigninWithoutMFA
+      AlarmDescription: Alarm if there is a Management Console sign-in without MFA
+      MetricName: ConsoleSigninWithoutMFACount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  ConsoleSigninWithoutMFAFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName="ConsoleLogin") &&
+          ($.additionalEventData.MFAUsed !="Yes")
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: ConsoleSigninWithoutMFACount
+
+# ------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 1.1   Avoid the use of the "root" account (Scored)
+# CIS AWS Foundations Benchmark - 3.3   Ensure a log metric filter and alarm exist for usage of "root" account  (Scored)
+# ------------------------------------------------------------------------------------------------------------------------------------
+  RootAccountUsageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - ConsoleSigninWithoutMFAAlarm
+    Properties:
+      AlarmName: CIS-3.3-RootAccountUsage
+      AlarmDescription: Alarm if a 'root' user uses the account
+      MetricName: RootAccountUsageCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  RootAccountUsageFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          $.userIdentity.type = "Root" &&
+          $.userIdentity.invokedBy NOT EXISTS &&
+          $.eventType != "AwsServiceEvent"
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: RootAccountUsageCount
+
+# ------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.4   Ensure a log metric filter and alarm exist for IAM policy changes (Scored)
+# ------------------------------------------------------------------------------------------------------------------------------------
+  IAMPolicyChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.4-IAMPolicyChanges
+      AlarmDescription: Alarm on IAM policy changes
+      MetricName: IAMPolicyChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  IAMPolicyChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=DeleteGroupPolicy) || 
+          ($.eventName=DeleteRolePolicy) || 
+          ($.eventName=DeleteUserPolicy) || 
+          ($.eventName=PutGroupPolicy) || 
+          ($.eventName=PutRolePolicy) || 
+          ($.eventName=PutUserPolicy) || 
+          ($.eventName=CreatePolicy) || 
+          ($.eventName=DeletePolicy) || 
+          ($.eventName=CreatePolicyVersion) || 
+          ($.eventName=DeletePolicyVersion) || 
+          ($.eventName=AttachRolePolicy) || 
+          ($.eventName=DetachRolePolicy) || 
+          ($.eventName=AttachUserPolicy) || 
+          ($.eventName=DetachUserPolicy) || 
+          ($.eventName=AttachGroupPolicy) || 
+          ($.eventName=DetachGroupPolicy)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: IAMPolicyChangesCount
+
+# ------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.5   Ensure a log metric filter and alarm exist for CloudTrail configuration changes (Scored)
+# ------------------------------------------------------------------------------------------------------------------------------------
+  CloudTrailChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.5-CloudTrailChanges
+      AlarmDescription: Alarm on CloudTrail configuration changes
+      MetricName: CloudTrailChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  CloudTrailChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=CreateTrail) || 
+          ($.eventName=UpdateTrail) || 
+          ($.eventName=DeleteTrail) || 
+          ($.eventName=StartLogging) || 
+          ($.eventName=StopLogging)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: CloudTrailChangesCount
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.6 Ensure a log metric filter and alarm exist for AWS Management Console authentication failures (Scored)
+# --------------------------------------------------------------------------------------------------------------------------------------------
+  ConsoleAuthenticationFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - RootAccountUsageAlarm
+    Properties:
+      AlarmName: CIS-3.6-ConsoleAuthenticationFailure
+      AlarmDescription: Alarm if there are AWS Management Console authentication failures
+      MetricName: ConsoleAuthenticationFailures
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  ConsoleAuthenticationFailureFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName = ConsoleLogin) &&
+          ($.errorMessage = "Failed authentication")
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: ConsoleAuthenticationFailures
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.7 Ensure a log metric filter and alarm exist for disabling or scheduled deletion of customer created CMKs (Scored)
+# --------------------------------------------------------------------------------------------------------------------------------------------
+  DisableOrDeleteCMKAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.7-DisableOrDeleteCMK
+      AlarmDescription: Alarm if CMKs are disabled or deleted
+      MetricName: DisableOrDeleteCMKCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  DisableOrDeleteCMKFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventSource=kms.amazonaws.com) &&
+          (($.eventName=DisableKey) || 
+          ($.eventName=ScheduleKeyDeletion))
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: DisableOrDeleteCMKCount
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.8 Ensure a log metric filter and alarm exist for S3 bucket policy changes (Scored)
+# --------------------------------------------------------------------------------------------------------------------------------------------
+  S3BucketPolicyChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.8-S3BucketPolicyChanges
+      AlarmDescription: Alarm if there are S3 Bucket policy changes
+      MetricName: S3BucketPolicyChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  S3BucketPolicyChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventSource=s3.amazonaws.com) && (($.eventName=PutBucketAcl) || 
+          ($.eventName=PutBucketPolicy) || 
+          ($.eventName=PutBucketCors) || 
+          ($.eventName=PutBucketLifecycle) || 
+          ($.eventName=PutBucketReplication) || 
+          ($.eventName=DeleteBucketPolicy) || 
+          ($.eventName=DeleteBucketCors) || 
+          ($.eventName=DeleteBucketLifecycle) || 
+          ($.eventName=DeleteBucketReplication))
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: S3BucketPolicyChangesCount
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.9 Ensure a log metric filter and alarm exist for AWS Config configuration changes (Scored)
+# --------------------------------------------------------------------------------------------------------------------------------------------
+  AWSConfigChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.9-AWSConfigChanges
+      AlarmDescription: Alarm if there are AWS Config changes
+      MetricName: AWSConfigChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  AWSConfigChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventSource=config.amazonaws.com) &&
+          (($.eventName=StopConfigurationRecorder) || 
+          ($.eventName=DeleteDeliveryChannel) || 
+          ($.eventName=PutDeliveryChannel) || 
+          ($.eventName=PutConfigurationRecorder))
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: AWSConfigChangesCount
+
+# ------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.10  Ensure a log metric filter and alarm exist for security group changes (Scored)
+# ------------------------------------------------------------------------------------------------------------------------------------
+  SecurityGroupChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.10-SecurityGroupChanges
+      AlarmDescription: Alarm on security group change events
+      MetricName: SecurityGroupChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  SecurityGroupChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=AuthorizeSecurityGroupIngress) || 
+          ($.eventName=AuthorizeSecurityGroupEgress) || 
+          ($.eventName=RevokeSecurityGroupIngress) || 
+          ($.eventName=RevokeSecurityGroupEgress) || 
+          ($.eventName=CreateSecurityGroup) || 
+          ($.eventName=DeleteSecurityGroup)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: SecurityGroupChangesCount
+
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.11  Ensure a log metric filter and alarm exist for changes to Network Access Control Lists (NACL) (Scored)
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+  NewtorkACLChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.11-NetworkACLChanges
+      AlarmDescription: Alarm on network ACL change events
+      MetricName: NewtorkACLChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  NewtorkACLChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=CreateNetworkAcl) || 
+          ($.eventName=CreateNetworkAclEntry) || 
+          ($.eventName=DeleteNetworkAcl) || 
+          ($.eventName=DeleteNetworkAclEntry) || 
+          ($.eventName=ReplaceNetworkAclEntry) || 
+          ($.eventName=ReplaceNetworkAclAssociation)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: NewtorkACLChangesCount
+
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.12  Ensure a log metric filter and alarm exist for changes to network gateways (Scored)
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+  NetworkGatewayChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.12-NetworkGatewayChanges
+      AlarmDescription: Alarm on network gateway change events
+      MetricName: NetworkGatewayChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  NetworkGatewayChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=CreateCustomerGateway) || 
+          ($.eventName=DeleteCustomerGateway) || 
+          ($.eventName=AttachInternetGateway) || 
+          ($.eventName=CreateInternetGateway) || 
+          ($.eventName=DeleteInternetGateway) || 
+          ($.eventName=DetachInternetGateway)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: NetworkGatewayChangesCount
+
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.13  Ensure a log metric filter and alarm exist for route table changes (Scored)
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+  RouteTableChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.13-RouteTableChanges
+      AlarmDescription: Alarm on route table change events
+      MetricName: RouteTableChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  RouteTableChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=CreateRoute) || 
+          ($.eventName=CreateRouteTable) || 
+          ($.eventName=ReplaceRoute) || 
+          ($.eventName=ReplaceRouteTableAssociation) || 
+          ($.eventName=DeleteRouteTable) || 
+          ($.eventName=DeleteRoute) || 
+          ($.eventName=DisassociateRouteTable)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: RouteTableChangesCount
+
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+# CIS AWS Foundations Benchmark - 3.14  Ensure a log metric filter and alarm exist for VPC changes (Scored)
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+  VpcChangesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CIS-3.14-VPCChanges
+      AlarmDescription: Alarm on VPC network change events
+      MetricName: VpcChangesCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - !Ref NotificationTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  VpcChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref TrailLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=CreateVpc) || 
+          ($.eventName=DeleteVpc) || 
+          ($.eventName=ModifyVpcAttribute) || 
+          ($.eventName=AcceptVpcPeeringConnection) || 
+          ($.eventName=CreateVpcPeeringConnection) || 
+          ($.eventName=DeleteVpcPeeringConnection) || 
+          ($.eventName=RejectVpcPeeringConnection) || 
+          ($.eventName=AttachClassicLinkVpc) || 
+          ($.eventName=DetachClassicLinkVpc) || 
+          ($.eventName=DisableVpcClassicLink) || 
+          ($.eventName=EnableVpcClassicLink)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: VpcChangesCount
+
+######################################################################################################################################
+# Notifications
+######################################################################################################################################
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: msb-notifications-global
+
+  NotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties: 
+      PolicyDocument:
+        Id: SecurityNotificationPolicy
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowCWEPublish
+          Effect: Allow
+          Principal:
+            Service:
+              - cloudwatch.amazonaws.com
+              - events.amazonaws.com
+          Action: sns:Publish
+          Resource: !Ref NotificationTopic
+      Topics:
+        - !Ref NotificationTopic
+
+  NotificationSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref NotificationEmail
+      Protocol: email
+      TopicArn: !Ref NotificationTopic
+
+######################################################################################################################################
+# SSM Parameters
+######################################################################################################################################
+
+  LoggingBucketParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /msb/logging/bucket
+      Type: String
+      Value: !Ref LoggingBucket
+      Description: The S3 Bucket created for storing logs
+
+  LoggingBucketARNParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /msb/logging/bucket-arn
+      Type: String
+      Value: !GetAtt LoggingBucket.Arn
+      Description: The S3 Bucket ARN created for storing logs
+
+  ConfigRecorderRoleArnParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /msb/logging/configrecorder-role-arn
+      Type: String
+      Value: !GetAtt ConfigRecorderRole.Arn
+      Description: The ARN of the IAM Role for the Config Recorder
+
+Outputs:
+
+  LoggingBucket:
+    Description: The S3 Bucket created for storing logs
+    Value: !Ref LoggingBucket
+
+  LoggingBucketARN:
+    Description: The S3 Bucket ARN created for storing logs
+    Value: !GetAtt LoggingBucket.Arn
+
+  ConfigRecorderRoleArn:
+    Description: The ARN of the IAM Role for the Config Recorder
+    Value: !GetAtt ConfigRecorderRole.Arn

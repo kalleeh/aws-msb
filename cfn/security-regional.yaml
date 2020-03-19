@@ -1,0 +1,293 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: AWS Minimum Security Baseline (MSB) - Regional Security Template
+  - Deploys security services in the AWS Account.
+  Note that this template contains regional services and needs to be deployed in every
+  region that you want to log in. It also creates an SNS Topic with a subscription
+  to the notification e-mail specified where security events will be published.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Notifications
+      Parameters:
+      - NotificationEmail
+    ParameterLabels:
+      NotificationEmail:
+        default: Notification Address
+
+Parameters:
+  NotificationEmail:
+    Type: String
+    Description: E-mail address to receive security notifications.
+
+Resources: 
+
+######################################################################################################################################
+# GuardDuty
+######################################################################################################################################
+
+  GuardDutyDetector:
+    Type: AWS::GuardDuty::Detector
+    Properties:
+        Enable: true
+
+  GuardDutyCWEvent:
+    Type: AWS::Events::Rule
+    Properties:
+        Description: GuardDuty Event Rule
+        EventPattern:
+          source:
+            - aws.guardduty
+          detail-type:
+            - GuardDuty Finding
+          detail:
+            severity:
+              - 4
+              - 4.0
+              - 4.1
+              - 4.2
+              - 4.3
+              - 4.4
+              - 4.5
+              - 4.6
+              - 4.7
+              - 4.8
+              - 4.9
+              - 5
+              - 5.0
+              - 5.1
+              - 5.2
+              - 5.3
+              - 5.4
+              - 5.5
+              - 5.6
+              - 5.7
+              - 5.8
+              - 5.9
+              - 6
+              - 6.0
+              - 6.1
+              - 6.2
+              - 6.3
+              - 6.4
+              - 6.5
+              - 6.6
+              - 6.7
+              - 6.8
+              - 6.9
+              - 7
+              - 7.0
+              - 7.1
+              - 7.2
+              - 7.3
+              - 7.4
+              - 7.5
+              - 7.6
+              - 7.7
+              - 7.8
+              - 7.9
+              - 8
+              - 8.0
+              - 8.1
+              - 8.2
+              - 8.3
+              - 8.4
+              - 8.5
+              - 8.6
+              - 8.7
+              - 8.8
+              - 8.9
+        State: ENABLED
+        Targets:
+            - 
+              Arn: !Ref NotificationTopic
+              Id: TargetSNSTopic
+              InputTransformer:
+                InputPathsMap:
+                  severity: $.detail.severity
+                  Finding_ID: $.detail.id
+                  instanceId: $.detail.resource.instanceDetails.instanceId
+                  port: $.detail.service.action.networkConnectionAction.localPortDetails.port
+                  eventFirstSeen: $.detail.service.eventFirstSeen
+                  eventLastSeen: $.detail.service.eventLastSeen
+                  count: $.detail.service.count
+                  Finding_Type: $.detail.type
+                  region: $.region
+                  Finding_description: $.detail.description
+                InputTemplate: |
+                  "GuardDuty finding type <Finding_Type>"
+                  "Severity Level: <severity>"
+                  "Region: <region>"
+                  "Description: <Finding_description>"
+                  "Instance: <instanceId>"
+                  "Port: <port>"
+                  ""
+                  "The first attempt was on <eventFirstSeen> and the most recent attempt on <eventLastSeen>."
+                  "The total occurrence is <count>."
+                  ""
+                  "For more details open the GuardDuty console at https://console.aws.amazon.com/guardduty/home?region=<region>#/findings?search=id%3D<Finding_ID>"
+
+######################################################################################################################################
+# Security Hub
+######################################################################################################################################
+
+  SecurityHubHub:
+    Type: "AWS::SecurityHub::Hub"
+
+  SecurityHubImportedCWEvent:
+    Type: AWS::Events::Rule
+    Properties:
+        Description: GuardDuty Event Rule
+        EventPattern:
+          source:
+            - aws.securityhub
+          detail-type:
+            - Security Hub Findings - Imported
+        State: ENABLED
+        Targets:
+            - 
+              Arn: !Ref NotificationTopic
+              Id: TargetSNSTopic
+              InputTransformer:
+                InputPathsMap:
+                  findingTime: $.detail.findings[0].updatedAt
+                  findingType: $.detail.findings[0].Types[0]
+                  findingId: $.detail.findings[0].Resources[0].Region
+                  findingTitle: $.detail.findings[0].Title
+                  findingDescription: $.detail.findings[0].Description
+                  complianceStatus: $.detail.findings[0].Compliance.Status
+                  affectedResources: $.detail.findings[0].Resources
+                  recommendationText: $.detail.findings[0].Recommendation.Text
+                  recommendationUrl: $.detail.findings[0].Recommendation.Url
+                InputTemplate: |
+                  "<findingTitle>"
+                  "Finding: <findingType>"
+                  "Date/Time: <findingTime>"
+                  "Finding ID: <findingId>"
+                  "Compliance Status: <complianceStatus>"
+                  "Description: <findingDescription>"
+                  ""
+                  "Affected Resource:"
+                  "<affectedResources>"
+                  ""
+                  "<recommendationText>"
+                  "<recommendationUrl>"
+
+  SecurityHubInsightsCWEvent:
+    Type: AWS::Events::Rule
+    Properties:
+        Description: GuardDuty Event Rule
+        EventPattern:
+          source:
+            - aws.securityhub
+          detail-type:
+            - Security Hub Insight Results
+        State: ENABLED
+        Targets:
+            - 
+              Arn: !Ref NotificationTopic
+              Id: TargetSNSTopic
+              InputTransformer:
+                InputPathsMap:
+                  insightTime: $.time
+                  actionName: $.detail.actionName
+                  actionDescription: $.detail.actionDescription
+                  insightArn: $.detail.insightArn
+                  insightName: $.detail.insightName
+                  resultType: $.detail.resultType
+                  insightResults: $.detail.insightResults
+                InputTemplate: |
+                  "<insightName>"
+                  "Result Type: <resultType>"
+                  "Date/Time: <insightTime>"
+                  "Insight ARN: <insightArn>"
+                  "Action Name: <actionName>"
+                  "Action Description: <actionDescription>"
+                  ""
+                  "Insight Results:"
+                  "<insightResults>"
+
+  # Custom Resource to enable CIS Standards in Security Hub
+  EnableCISFoundations:
+    DependsOn: SecurityHubHub
+    Type: Custom::SecurityHubStandards
+    Properties:
+      ServiceToken: !GetAtt SHStandardsManager.Arn
+      StandardsArns: arn:aws:securityhub:::ruleset/cis-aws-foundations-benchmark/v/1.2.0 # comma separated list of standards ARN's to enable
+
+  SHStandardsManager:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.7
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - securityhub:BatchEnableStandards
+                - securityhub:BatchDisableStandards
+              Resource: "*"
+      InlineCode: |
+        import boto3
+        import cfnresponse
+
+        client = boto3.client("securityhub")
+
+        def handler(event, context):
+            responseData = {}
+            physicalResourceId = {}
+            standards_arns = event['ResourceProperties']['StandardsArns'].split(',')
+
+            if event['RequestType'] == 'Create':
+                standards_subscription_request = [{'StandardsArn': standard_arn} for standard_arn in standards_arns]
+
+                try:
+                    resp = client.batch_enable_standards(StandardsSubscriptionRequests=standards_subscription_request)
+                    responseData['reason'] = 'Successully enabled standards.'
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, physicalResourceId)
+                    return
+                except Exception as e:
+                    responseData['reason'] = "Cannot enable standards: " + str(e)
+                    cfnresponse.send(event, context, cfnresponse.FAILED, responseData, physicalResourceId)
+                    return
+            elif event['RequestType'] == 'Update' or event['RequestType'] == 'Delete':
+                responseData['reason'] = 'No changes required.'
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, physicalResourceId)
+
+######################################################################################################################################
+# Notifications
+######################################################################################################################################
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub msb-notifications-${AWS::Region}
+
+  NotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties: 
+      PolicyDocument:
+        Id: SecurityNotificationPolicy
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowCWEPublish
+          Effect: Allow
+          Principal:
+            Service:
+              - events.amazonaws.com
+          Action: sns:Publish
+          Resource: !Ref NotificationTopic
+      Topics:
+        - !Ref NotificationTopic
+
+  NotificationSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref NotificationEmail
+      Protocol: email
+      TopicArn: !Ref NotificationTopic
+
+Outputs:
+  SecurityHubArn:
+    Value: !Ref SecurityHubHub
