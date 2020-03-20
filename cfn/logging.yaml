@@ -86,6 +86,8 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       ObjectLockEnabled: true
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLoggingBucket
 
   LoggingBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -114,6 +116,33 @@ Resources:
             Condition:
               StringEquals:
                 s3:x-amz-acl: bucket-owner-full-control
+
+  # S3 Access Logging bucket for CIS 2.6
+  AccessLoggingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub msb-s3-access-logging-${AWS::AccountId}
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+        - Id: GlacierRule
+          Status: Enabled
+          ExpirationInDays: 20
+          Transitions:
+            - TransitionInDays: 10
+              StorageClass: Glacier
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      ObjectLockEnabled: true
 
   # Logging Encryption Key
   LoggingKMSKey:
