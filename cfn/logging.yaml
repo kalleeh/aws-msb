@@ -70,14 +70,6 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
-      LifecycleConfiguration:
-        Rules:
-        - Id: GlacierRule
-          Status: Enabled
-          ExpirationInDays: 20
-          Transitions:
-            - TransitionInDays: 10
-              StorageClass: Glacier
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -127,14 +119,6 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
-      LifecycleConfiguration:
-        Rules:
-        - Id: GlacierRule
-          Status: Enabled
-          ExpirationInDays: 20
-          Transitions:
-            - TransitionInDays: 10
-              StorageClass: Glacier
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
