@@ -17,9 +17,19 @@ Metadata:
         default: Notification Address
 
 Parameters:
+
   NotificationEmail:
     Type: String
     Description: E-mail address to receive security notifications.
+
+  SecurityHubEvents:
+    Type: String
+    Description: Set to true if you want to push Security Hub Events to the SNS topic.
+    Default: false
+    AllowedValues: [true, false]
+
+Conditions:
+  SendSecurityHubEvents: !Equals [!Ref SecurityHubEvents, true]
 
 Resources: 
 
@@ -182,79 +192,81 @@ Resources:
                 responseData['reason'] = 'No changes required.'
                 cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, physicalResourceId)
 
-  # # Security Hub Notifications (disabled by default)
-  # SecurityHubImportedCWEvent:
-  #   Type: AWS::Events::Rule
-  #   Properties:
-  #       Description: GuardDuty Event Rule
-  #       EventPattern:
-  #         source:
-  #           - aws.securityhub
-  #         detail-type:
-  #           - Security Hub Findings - Imported
-  #       State: ENABLED
-  #       Targets:
-  #           - 
-  #             Arn: !Ref NotificationTopic
-  #             Id: TargetSNSTopic
-  #             InputTransformer:
-  #               InputPathsMap:
-  #                 findingTime: $.detail.findings[0].updatedAt
-  #                 findingType: $.detail.findings[0].Types[0]
-  #                 findingId: $.detail.findings[0].Resources[0].Region
-  #                 findingTitle: $.detail.findings[0].Title
-  #                 findingDescription: $.detail.findings[0].Description
-  #                 complianceStatus: $.detail.findings[0].Compliance.Status
-  #                 affectedResources: $.detail.findings[0].Resources
-  #                 recommendationText: $.detail.findings[0].Recommendation.Text
-  #                 recommendationUrl: $.detail.findings[0].Recommendation.Url
-  #               InputTemplate: |
-  #                 "<findingTitle>"
-  #                 "Finding: <findingType>"
-  #                 "Date/Time: <findingTime>"
-  #                 "Finding ID: <findingId>"
-  #                 "Compliance Status: <complianceStatus>"
-  #                 "Description: <findingDescription>"
-  #                 ""
-  #                 "Affected Resource:"
-  #                 "<affectedResources>"
-  #                 ""
-  #                 "<recommendationText>"
-  #                 "<recommendationUrl>"
+  # Security Hub Notifications (disabled by default)
+  SecurityHubImportedCWEvent:
+    Condition: SendSecurityHubEvents
+    Type: AWS::Events::Rule
+    Properties:
+        Description: GuardDuty Event Rule
+        EventPattern:
+          source:
+            - aws.securityhub
+          detail-type:
+            - Security Hub Findings - Imported
+        State: ENABLED
+        Targets:
+            - 
+              Arn: !Ref NotificationTopic
+              Id: TargetSNSTopic
+              InputTransformer:
+                InputPathsMap:
+                  findingTime: $.detail.findings[0].updatedAt
+                  findingType: $.detail.findings[0].Types[0]
+                  findingId: $.detail.findings[0].Resources[0].Region
+                  findingTitle: $.detail.findings[0].Title
+                  findingDescription: $.detail.findings[0].Description
+                  complianceStatus: $.detail.findings[0].Compliance.Status
+                  affectedResources: $.detail.findings[0].Resources
+                  recommendationText: $.detail.findings[0].Recommendation.Text
+                  recommendationUrl: $.detail.findings[0].Recommendation.Url
+                InputTemplate: |
+                  "<findingTitle>"
+                  "Finding: <findingType>"
+                  "Date/Time: <findingTime>"
+                  "Finding ID: <findingId>"
+                  "Compliance Status: <complianceStatus>"
+                  "Description: <findingDescription>"
+                  ""
+                  "Affected Resource:"
+                  "<affectedResources>"
+                  ""
+                  "<recommendationText>"
+                  "<recommendationUrl>"
 
-  # SecurityHubInsightsCWEvent:
-  #   Type: AWS::Events::Rule
-  #   Properties:
-  #       Description: GuardDuty Event Rule
-  #       EventPattern:
-  #         source:
-  #           - aws.securityhub
-  #         detail-type:
-  #           - Security Hub Insight Results
-  #       State: ENABLED
-  #       Targets:
-  #           - 
-  #             Arn: !Ref NotificationTopic
-  #             Id: TargetSNSTopic
-  #             InputTransformer:
-  #               InputPathsMap:
-  #                 insightTime: $.time
-  #                 actionName: $.detail.actionName
-  #                 actionDescription: $.detail.actionDescription
-  #                 insightArn: $.detail.insightArn
-  #                 insightName: $.detail.insightName
-  #                 resultType: $.detail.resultType
-  #                 insightResults: $.detail.insightResults
-  #               InputTemplate: |
-  #                 "<insightName>"
-  #                 "Result Type: <resultType>"
-  #                 "Date/Time: <insightTime>"
-  #                 "Insight ARN: <insightArn>"
-  #                 "Action Name: <actionName>"
-  #                 "Action Description: <actionDescription>"
-  #                 ""
-  #                 "Insight Results:"
-  #                 "<insightResults>"
+  SecurityHubInsightsCWEvent:
+    Condition: SendSecurityHubEvents
+    Type: AWS::Events::Rule
+    Properties:
+        Description: GuardDuty Event Rule
+        EventPattern:
+          source:
+            - aws.securityhub
+          detail-type:
+            - Security Hub Insight Results
+        State: ENABLED
+        Targets:
+            - 
+              Arn: !Ref NotificationTopic
+              Id: TargetSNSTopic
+              InputTransformer:
+                InputPathsMap:
+                  insightTime: $.time
+                  actionName: $.detail.actionName
+                  actionDescription: $.detail.actionDescription
+                  insightArn: $.detail.insightArn
+                  insightName: $.detail.insightName
+                  resultType: $.detail.resultType
+                  insightResults: $.detail.insightResults
+                InputTemplate: |
+                  "<insightName>"
+                  "Result Type: <resultType>"
+                  "Date/Time: <insightTime>"
+                  "Insight ARN: <insightArn>"
+                  "Action Name: <actionName>"
+                  "Action Description: <actionDescription>"
+                  ""
+                  "Insight Results:"
+                  "<insightResults>"
 
 ######################################################################################################################################
 # Notifications

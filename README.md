@@ -71,21 +71,24 @@ For detailed instructions on setting up federation you can read more on this [bl
 The baseline configures CloudWatch Events that listen and alerts on several types of events.
 
 - GuardDuty Findings with severity Medium or Higher (Above 4)
+
+The following events are disabled by default but to avoid too much noise but can be enabled by setting the `SecurityHubEvents` parameter to true in the `security-regional` template.
+
 - Security Hub Findings - Imported
 - Security Hub Insight Results
 
 [List of Security Hub Types](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cloudwatch-events.html#securityhub-cwe-integration-types)
 
-These can be tweaked in the Regional Security template.
+Note: It is recommended that you regularly view the status in the [Security Hub Dashboard](console.aws.amazon.com/securityhub/home) in relevant regions for an overview of your security status.
 
 ### Cleanup
 
-In order to clean up the MSB delete CloudFormation stacks starting from regional stacks and then the global ones, like in the example below: 
+In order to clean up the MSB delete CloudFormation stacks starting from regional stacks and then the global ones, like in the example below:
 
 ```sh
-aws cloudformation delete-stack msb-security-eu-west-1 [ --profile yourawsprofile ] 
-aws cloudformation delete-stack msb-vpc-eu-west-1 [ --profile yourawsprofile ] 
-aws cloudformation delete-stack msb-logging-eu-west-1 [ --profile yourawsprofile ] 
-aws cloudformation delete-stack msb-logging-global [ --profile yourawsprofile ] 
-aws cloudformation delete-stack msb-iam-global [ --profile yourawsprofile ] 
+aws cloudformation delete-stack msb-security-eu-west-1 [ --profile yourawsprofile ]
+aws cloudformation delete-stack msb-vpc-eu-west-1 [ --profile yourawsprofile ]
+aws cloudformation delete-stack msb-logging-eu-west-1 [ --profile yourawsprofile ]
+aws cloudformation delete-stack msb-logging-global [ --profile yourawsprofile ]
+aws cloudformation delete-stack msb-iam-global [ --profile yourawsprofile ]
 ```
