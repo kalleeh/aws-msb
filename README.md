@@ -41,7 +41,7 @@ This template sets up a number of logging and security services in your account.
 
 Run the below command to package all the deployment artifacts, upload them to the S3 bucket and create the CloudFormation stacks.
 
-1. First modify the msb.config file with your settings.
+1. First modify the msb.config file with your settings, change the AWS CLI profile if you want to use a profile other than `default`.
 2. Run the deployment script in Global deployment mode to deploy account level pre-requisites.
 
     ```sh
@@ -56,18 +56,9 @@ Run the below command to package all the deployment artifacts, upload them to th
 If you are operating in multiple regions you need to deploy the regional templates in each region since some security and logging services operate on a regional level.
 Run the deploy script for each region you want to enable and choose the regional deployment mode and then specify the new region.
 
-### (Slightly) Advanced Topics
+### Alerts and Logging
 
-#### Federated Users from a SAML 2.0 Provider
-
-The IAM template provides support for integrating with a SAML 2.0 IdP to authenticate your users.
-
-1. Create the IdP manually in your AWS Account and specify a name.
-2. Update the iam.yaml template and set the default value for parameter IdentityProvider to the name of the IdP you just created.
-
-For detailed instructions on setting up federation you can read more on this [blog post](https://aws.amazon.com/blogs/security/aws-federated-authentication-with-active-directory-federation-services-ad-fs/).
-
-#### Security Logging
+> Note: It is recommended that you regularly view the status in the [Security Hub Dashboard](console.aws.amazon.com/securityhub/home) in relevant regions for an overview of your security status.
 
 The baseline configures CloudWatch Events that listen and alerts on several types of events.
 
@@ -81,7 +72,16 @@ The following events are disabled by default but to avoid too much noise but can
 
 [List of Security Hub Types](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cloudwatch-events.html#securityhub-cwe-integration-types)
 
-Note: It is recommended that you regularly view the status in the [Security Hub Dashboard](console.aws.amazon.com/securityhub/home) in relevant regions for an overview of your security status.
+### (Slightly) Advanced Topics
+
+#### Federated Users from a SAML 2.0 Provider
+
+The IAM template provides support for integrating with a SAML 2.0 IdP to authenticate your users.
+
+1. Create the IdP manually in your AWS Account and specify a name.
+2. Update the iam.yaml template and set the default value for parameter IdentityProvider to the name of the IdP you just created.
+
+For detailed instructions on setting up federation you can read more on this [blog post](https://aws.amazon.com/blogs/security/aws-federated-authentication-with-active-directory-federation-services-ad-fs/).
 
 ### Cleanup
 
