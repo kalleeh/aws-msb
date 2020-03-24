@@ -62,8 +62,15 @@ Run the deploy script for each region you want to enable and choose the regional
 
 The baseline configures CloudWatch Events that listen and alerts on several types of events.
 
+<<<<<<< HEAD
 - [GuardDuty Findings with severity Medium or Higher (Above 4)](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings.html)
 - [IAM Access Analyzer Findings](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-findings.html)
+=======
+- GuardDuty Findings with severity Medium or Higher (Above 4)
+- CIS AWS Foundations Alarms for checks 1.1, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+
+[List of CIS AWS Foundations Controls](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html)
+>>>>>>> master
 
 The following events are disabled by default but to avoid too much noise but can be enabled by setting the `SecurityHubEvents` parameter to true in the `security-regional` template.
 
