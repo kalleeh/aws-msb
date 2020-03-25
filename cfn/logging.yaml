@@ -72,12 +72,9 @@ Resources:
               SSEAlgorithm: AES256
       LifecycleConfiguration:
         Rules:
-        - Id: GlacierRule
+        - Id: ExpirationRule
           Status: Enabled
-          ExpirationInDays: 20
-          Transitions:
-            - TransitionInDays: 10
-              StorageClass: Glacier
+          ExpirationInDays: 90
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -129,12 +126,9 @@ Resources:
               SSEAlgorithm: AES256
       LifecycleConfiguration:
         Rules:
-        - Id: GlacierRule
+        - Id: ExpirationRule
           Status: Enabled
-          ExpirationInDays: 20
-          Transitions:
-            - TransitionInDays: 10
-              StorageClass: Glacier
+          ExpirationInDays: 90
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
