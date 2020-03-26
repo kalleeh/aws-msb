@@ -14,7 +14,7 @@ The templates below are included in this repository and reference architecture:
 | [cfn/iam.yaml](cfn/iam.yaml) | This template deploys IAM Groups, Roles and policies in the account. Create IAM Users and assign them to groups to give access to users. |
 | [cfn/logging.yaml](cfn/logging.yaml) | This template deploys a multi-region CloudTrail Trail, an S3 Bucket used to store logs from the other services and an IAM Role used for AWS Config. |
 | [cfn/logging-regional.yaml](cfn/logging-regional.yaml) | This template deploys AWS Config in the region and sends logs to an S3 Bucket. |
-| [cfn/security-regional.yaml](cfn/security-regional.yaml) | This template deploys AWS GuardDuty and AWS Security Hub with CIS Foundations Benchmark enabled. It also provisions CloudWatch Event Rules to automatically notify the Notification E-Mail of events that happen. Note: This uses a custom resource in src/lambda_shcis to enable the CIS Foundations Benchmark. |
+| [cfn/security-regional.yaml](cfn/security-regional.yaml) | This template deploys AWS GuardDuty and AWS Security Hub with CIS Foundations Benchmark enabled. It also provisions CloudWatch Event Rules to automatically notify the Notification E-Mail of events that happen. Note: This uses a custom resource to enable the CIS Foundations Benchmark. |
 | [cfn/vpc-regional.yaml](cfn/vpc-regional.yaml) | This template deploys a VPC with a pair of public and private subnets spread across two or three Availability Zones. It deploys an [Internet gateway](http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_Internet_Gateway.html), with a default route on the public subnets. It deploys a pair of NAT gateways (one in each zone), and default routes for them in the private subnets. |
 
 After the CloudFormation templates have been deployed, the [stack outputs](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html) contain a series of parameters useful for accessing your resources and logs.
@@ -34,13 +34,14 @@ This template sets up a number of logging and security services in your account.
 
 - AWS Config
 - AWS GuardDuty
+- AWS IAM Access Analyzer
 - AWS Security Hub
 
 ### Setup
 
 Run the below command to package all the deployment artifacts, upload them to the S3 bucket and create the CloudFormation stacks.
 
-1. First modify the msb.config file with your settings.
+1. First modify the msb.config file with your settings, change the AWS CLI profile if you want to use a profile other than `default`.
 2. Run the deployment script in Global deployment mode to deploy account level pre-requisites.
 
     ```sh
@@ -55,6 +56,29 @@ Run the below command to package all the deployment artifacts, upload them to th
 If you are operating in multiple regions you need to deploy the regional templates in each region since some security and logging services operate on a regional level.
 Run the deploy script for each region you want to enable and choose the regional deployment mode and then specify the new region.
 
+### Alerts and Logging
+
+> Note: It is recommended that you regularly view the status in the [Security Hub Dashboard](console.aws.amazon.com/securityhub/home) in relevant regions for an overview of your security status.
+
+The baseline configures CloudWatch Events that listen and alerts on several types of events.
+
+<<<<<<< HEAD
+- [GuardDuty Findings with severity Medium or Higher (Above 4)](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings.html)
+- [IAM Access Analyzer Findings](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-findings.html)
+=======
+- GuardDuty Findings with severity Medium or Higher (Above 4)
+- CIS AWS Foundations Alarms for checks 1.1, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+
+[List of CIS AWS Foundations Controls](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html)
+>>>>>>> master
+
+The following events are disabled by default but to avoid too much noise but can be enabled by setting the `SecurityHubEvents` parameter to true in the `security-regional` template.
+
+- Security Hub Findings - Imported
+- Security Hub Insight Results
+
+[List of Security Hub Types](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cloudwatch-events.html#securityhub-cwe-integration-types)
+
 ### (Slightly) Advanced Topics
 
 #### Federated Users from a SAML 2.0 Provider
@@ -65,24 +89,6 @@ The IAM template provides support for integrating with a SAML 2.0 IdP to authent
 2. Update the iam.yaml template and set the default value for parameter IdentityProvider to the name of the IdP you just created.
 
 For detailed instructions on setting up federation you can read more on this [blog post](https://aws.amazon.com/blogs/security/aws-federated-authentication-with-active-directory-federation-services-ad-fs/).
-
-#### Security Logging
-
-The baseline configures CloudWatch Events that listen and alerts on several types of events.
-
-- GuardDuty Findings with severity Medium or Higher (Above 4)
-- CIS AWS Foundations Alarms for checks 1.1, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
-
-[List of CIS AWS Foundations Controls](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html)
-
-The following events are disabled by default but to avoid too much noise but can be enabled by setting the `SecurityHubEvents` parameter to true in the `security-regional` template.
-
-- Security Hub Findings - Imported
-- Security Hub Insight Results
-
-[List of Security Hub Types](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cloudwatch-events.html#securityhub-cwe-integration-types)
-
-Note: It is recommended that you regularly view the status in the [Security Hub Dashboard](console.aws.amazon.com/securityhub/home) in relevant regions for an overview of your security status.
 
 ### Cleanup
 
