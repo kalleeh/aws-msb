@@ -62,22 +62,13 @@ Run the deploy script for each region you want to enable and choose the regional
 
 The baseline configures CloudWatch Events that listen and alerts on several types of events.
 
-<<<<<<< HEAD
 - [GuardDuty Findings with severity Medium or Higher (Above 4)](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings.html)
 - [IAM Access Analyzer Findings](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-findings.html)
-=======
-- GuardDuty Findings with severity Medium or Higher (Above 4)
-- CIS AWS Foundations Alarms for checks 1.1, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+- [CIS AWS Foundations Alarms](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html) for checks 1.1, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+- [Security Hub Findings - Imported](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cloudwatch-events.html#securityhub-cwe-integration-types)
+- [Security Hub Insight Results](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cloudwatch-events.html#securityhub-cwe-integration-types)
 
-[List of CIS AWS Foundations Controls](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html)
->>>>>>> master
-
-The following events are disabled by default but to avoid too much noise but can be enabled by setting the `SecurityHubEvents` parameter to true in the `security-regional` template.
-
-- Security Hub Findings - Imported
-- Security Hub Insight Results
-
-[List of Security Hub Types](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cloudwatch-events.html#securityhub-cwe-integration-types)
+The Security Hub events filter any "PASSED" checks by default but to avoid too much noise you can disable these events completely by setting the `SecurityHubEvents` parameter to false in the `security-regional` template.
 
 ### (Slightly) Advanced Topics
 
