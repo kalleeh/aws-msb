@@ -25,7 +25,7 @@ Parameters:
   SecurityHubEvents:
     Type: String
     Description: Set to true if you want to push Security Hub Events to the SNS topic.
-    Default: false
+    Default: true
     AllowedValues: [true, false]
 
 Conditions:
@@ -212,6 +212,11 @@ Resources:
             - aws.securityhub
           detail-type:
             - Security Hub Findings - Imported
+          detail:
+            findings:
+              Compliance:
+                Status:
+                  - FAILED
         State: ENABLED
         Targets:
             - 
@@ -252,6 +257,11 @@ Resources:
             - aws.securityhub
           detail-type:
             - Security Hub Insight Results
+          detail:
+            findings:
+              Compliance:
+                Status:
+                  - FAILED
         State: ENABLED
         Targets:
             - 
