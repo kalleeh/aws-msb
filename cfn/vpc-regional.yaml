@@ -73,13 +73,13 @@ Conditions:
     - !Condition DeployAZTwo
     - !Equals [!Ref DeploySingleNATGW, false]
   DeployNGWAZThree: !And
-    - !Condition DeployAZTwo
+    - !Condition DeployAZThree
     - !Equals [!Ref DeploySingleNATGW, false]
   DeploySingleNGWAZTwo: !And
     - !Condition DeployAZTwo
     - !Condition DeploySingleNATGW
   DeploySingleNGWAZThree: !And
-    - !Condition DeployAZTwo
+    - !Condition DeployAZThree
     - !Condition DeploySingleNATGW
 
 Resources:
