@@ -1,9 +1,8 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
-Description: AWS Minimum Security Baseline (MSB) - IAM Groups & Roles Template 
+Description: AWS Minimum Security Baseline (MSB) - IAM Groups & Roles Template
 
 Parameters:
-
   CreateSSMRole:
     Type: String
     Description: |
@@ -23,15 +22,14 @@ Parameters:
     Default: 3600
 
 Conditions:
-  AWSIAM: !Equals [!Ref IdentityProvider, 'aws-iam']
+  AWSIAM: !Equals [!Ref IdentityProvider, "aws-iam"]
   FederatedIAM: !Not [Condition: AWSIAM]
   CreateSSMRole: !Equals [!Ref CreateSSMRole, true]
 
 Resources:
-
-######################################################################################################################################
-# Human Groups/Roles & Policies
-######################################################################################################################################
+  ######################################################################################################################################
+  # Human Groups/Roles & Policies
+  ######################################################################################################################################
 
   GenericReadOnlyGroup:
     Condition: AWSIAM
@@ -51,7 +49,7 @@ Resources:
         Statement:
           Effect: Allow
           Action: sts:AssumeRoleWithSAML
-          Principal: 
+          Principal:
             Federated: !Ref IdentityProvider
           Condition:
             StringEquals:
@@ -80,12 +78,12 @@ Resources:
         Statement:
           Effect: Allow
           Action: sts:AssumeRoleWithSAML
-          Principal: 
+          Principal:
             Federated: !Ref IdentityProvider
           Condition:
             StringEquals:
               SAML:aud: https://signin.aws.amazon.com/saml
-      ManagedPolicyArns: 
+      ManagedPolicyArns:
         - arn:aws:iam::aws:policy/IAMFullAccess
       MaxSessionDuration: !Ref MaxSessionDuration
       RoleName: msb-iam-admin
@@ -111,7 +109,7 @@ Resources:
         Statement:
           Effect: Allow
           Action: sts:AssumeRoleWithSAML
-          Principal: 
+          Principal:
             Federated: !Ref IdentityProvider
           Condition:
             StringEquals:
@@ -235,7 +233,7 @@ Resources:
               - cloudformation:CreateStack
               - cloudformation:UpdateStack
             Effect: Deny
-            Resource: 
+            Resource:
               - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/msb-*"
           - Sid: RestrictLambdaAccess
             Action:
@@ -286,7 +284,7 @@ Resources:
               - iam:CreateSAMLProvider
               - iam:DeleteSAMLProvider
               - iam:UpdateSAMLProvider
-            Resource: '*'
+            Resource: "*"
           - Sid: RestrictIAMAccessGroups
             Effect: Deny
             Action:
@@ -307,13 +305,13 @@ Resources:
               - !Sub "arn:aws:iam::${AWS::AccountId}:policy/msb/*"
           - Sid: RestrictDNSResources
             Action:
-            - route53resolver:Associate*
-            - route53resolver:Create*
-            - route53resolver:Delete*
-            - route53resolver:Disassociate*
-            - route53resolver:Tag*
-            - route53resolver:Untag*
-            - route53resolver:Update*
+              - route53resolver:Associate*
+              - route53resolver:Create*
+              - route53resolver:Delete*
+              - route53resolver:Disassociate*
+              - route53resolver:Tag*
+              - route53resolver:Untag*
+              - route53resolver:Update*
             Effect: Deny
             Resource: "*"
           - Sid: RestrictConfig
@@ -338,9 +336,9 @@ Resources:
           #     ArnNotEquals:
           #       iam:PermissionsBoundary: !Sub "arn:aws:iam::${AWS::AccountId}:policy/msb/msb-poweruser-policy"
 
-######################################################################################################################################
-# Machine Roles
-######################################################################################################################################
+  ######################################################################################################################################
+  # Machine Roles
+  ######################################################################################################################################
 
   # Systems Manager Instance Profile
   SSMInstanceProfile:
@@ -357,11 +355,11 @@ Resources:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
-        - Effect: "Allow"
-          Action: "sts:AssumeRole"
-          Principal:
-            Service: "ec2.amazonaws.com"
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: "ec2.amazonaws.com"
       ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
       RoleName: msb-ssm-instance-role
       Path: /msb/

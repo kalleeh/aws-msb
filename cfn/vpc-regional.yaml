@@ -1,11 +1,10 @@
 Description: AWS Minimum Security Baseline (MSB) - Standard VPC Template
   - Deploys a VPC, with a pair of public and private subnets spread
   across one,two or three Availability Zones. It deploys an Internet Gateway, with a default
-  route on the public subnets. It deploys a pair of NAT Gateways (one in each AZ),
+  route on the public subnets. It deploys NAT Gateway(s),
   and default routes for them in the private subnets.
 
 Parameters:
-
   VPCCIDR:
     Description: VPC CIDR Block
     Type: String
@@ -60,15 +59,33 @@ Parameters:
     Default: true
     AllowedValues: [true, false]
 
+  DeploySingleNATGW:
+    Description: NAT Gateway deployed only in 1st Availability Zone, instead of one for each AZ
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
+
 Conditions:
   DeployAZTwo: !Equals [!Ref DeployAZTwo, true]
   DeployAZThree: !Equals [!Ref DeployAZThree, true]
+  DeploySingleNATGW: !Equals [!Ref DeploySingleNATGW, true]
+  DeployNGWAZTwo: !And
+    - !Condition DeployAZTwo
+    - !Equals [!Ref DeploySingleNATGW, false]
+  DeployNGWAZThree: !And
+    - !Condition DeployAZThree
+    - !Equals [!Ref DeploySingleNATGW, false]
+  DeploySingleNGWAZTwo: !And
+    - !Condition DeployAZTwo
+    - !Condition DeploySingleNATGW
+  DeploySingleNGWAZThree: !And
+    - !Condition DeployAZThree
+    - !Condition DeploySingleNATGW
 
 Resources:
-
-######################################################################################################################################
-# VPC Creation
-######################################################################################################################################
+  ######################################################################################################################################
+  # VPC Creation
+  ######################################################################################################################################
 
   VPC:
     Type: AWS::EC2::VPC
@@ -173,13 +190,13 @@ Resources:
           Value: infra-nat-sn-1
 
   ElasticIPNatGateway2:
-    Condition: DeployAZTwo
+    Condition: DeployNGWAZTwo
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
 
   NatGatewayAZ2:
-    Condition: DeployAZTwo
+    Condition: DeployNGWAZTwo
     Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt ElasticIPNatGateway2.AllocationId
@@ -189,13 +206,13 @@ Resources:
           Value: infra-nat-sn-2
 
   ElasticIPNatGateway3:
-    Condition: DeployAZThree
+    Condition: DeployNGWAZThree
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
 
   NatGatewayAZ3:
-    Condition: DeployAZThree
+    Condition: DeployNGWAZThree
     Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt ElasticIPNatGateway3.AllocationId
@@ -204,9 +221,9 @@ Resources:
         - Key: Name
           Value: infra-nat-sn-3
 
-######################################################################################################################################
-# VPC Routes
-######################################################################################################################################
+  ######################################################################################################################################
+  # VPC Routes
+  ######################################################################################################################################
 
   # Public Routes
   PublicRouteTable:
@@ -251,7 +268,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: infra-private-route-table1
+          Value: infra-private-route-table-1
 
   PrivateSubnet1RouteTableAssoc:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -268,7 +285,7 @@ Resources:
 
   # Private Routes AZ 2
   PrivateRouteTable2:
-    Condition: DeployAZTwo
+    Condition: DeployNGWAZTwo
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
@@ -277,14 +294,21 @@ Resources:
           Value: infra-private-route-table-2
 
   PrivateSubnet2RouteTableAssoc:
-    Condition: DeployAZTwo
+    Condition: DeployNGWAZTwo
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnet2
       RouteTableId: !Ref PrivateRouteTable2
 
+  PrivateSubnet2RouteTableAssocSingleNGW:
+    Condition: DeploySingleNGWAZTwo
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable1
+
   PrivateRoute2:
-    Condition: DeployAZTwo
+    Condition: DeployNGWAZTwo
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref PrivateRouteTable2
@@ -293,7 +317,7 @@ Resources:
 
   # Private Routes AZ 3
   PrivateRouteTable3:
-    Condition: DeployAZThree
+    Condition: DeployNGWAZThree
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
@@ -302,23 +326,30 @@ Resources:
           Value: infra-private-route-table-3
 
   PrivateSubnet3RouteTableAssoc:
-    Condition: DeployAZThree
+    Condition: DeployNGWAZThree
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnet3
       RouteTableId: !Ref PrivateRouteTable3
 
+  PrivateSubnet3RouteTableAssocSingleNGW:
+    Condition: DeploySingleNGWAZThree
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable1
+
   PrivateRoute3:
-    Condition: DeployAZThree
+    Condition: DeployNGWAZThree
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref PrivateRouteTable3
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGatewayAZ3
 
-######################################################################################################################################
-# VPC Flow Logs
-######################################################################################################################################
+  ######################################################################################################################################
+  # VPC Flow Logs
+  ######################################################################################################################################
 
   FlowLogRole:
     Type: AWS::IAM::Role
@@ -326,23 +357,23 @@ Resources:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - vpc-flow-logs.amazonaws.com
-          Action: sts:AssumeRole
-      Policies:
-      - PolicyName: flowlogs-policy
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
           - Effect: Allow
-            Action:
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-            - logs:DescribeLogGroups
-            - logs:DescribeLogStreams
-            Resource: !GetAtt FlowLogLogGroup.Arn
+            Principal:
+              Service:
+                - vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: flowlogs-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Resource: !GetAtt FlowLogLogGroup.Arn
 
   FlowLogLogGroup:
     Type: AWS::Logs::LogGroup
@@ -369,7 +400,6 @@ Resources:
       TrafficType: ACCEPT
 
 Outputs:
-
   VpcId:
     Description: VPC ID of Standard VPC
     Value: !Ref VPC

@@ -8,16 +8,15 @@ Description: AWS Minimum Security Baseline (MSB) - Regional Security Template
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-    - Label:
-        default: Notifications
-      Parameters:
-      - NotificationEmail
+      - Label:
+          default: Notifications
+        Parameters:
+          - NotificationEmail
     ParameterLabels:
       NotificationEmail:
         default: Notification Address
 
 Parameters:
-
   NotificationEmail:
     Type: String
     Description: E-mail address to receive security notifications.
@@ -31,125 +30,123 @@ Parameters:
 Conditions:
   SendSecurityHubEvents: !Equals [!Ref SecurityHubEvents, true]
 
-Resources: 
-
-######################################################################################################################################
-# IAM Access Analyzer
-######################################################################################################################################
+Resources:
+  ######################################################################################################################################
+  # IAM Access Analyzer
+  ######################################################################################################################################
   IAMAccessAnalyzer:
     Type: AWS::AccessAnalyzer::Analyzer
     Properties:
       AnalyzerName: !Sub msb-accessanalyzer-${AWS::Region}
       Type: ACCOUNT
 
-######################################################################################################################################
-# GuardDuty
-######################################################################################################################################
+  ######################################################################################################################################
+  # GuardDuty
+  ######################################################################################################################################
 
   GuardDutyDetector:
     Type: AWS::GuardDuty::Detector
     Properties:
-        Enable: true
+      Enable: true
 
   GuardDutyCWEvent:
     Type: AWS::Events::Rule
     Properties:
-        Description: GuardDuty Event Rule
-        EventPattern:
-          source:
-            - aws.guardduty
-          detail-type:
-            - GuardDuty Finding
-          detail:
-            severity:
-              - 4
-              - 4.0
-              - 4.1
-              - 4.2
-              - 4.3
-              - 4.4
-              - 4.5
-              - 4.6
-              - 4.7
-              - 4.8
-              - 4.9
-              - 5
-              - 5.0
-              - 5.1
-              - 5.2
-              - 5.3
-              - 5.4
-              - 5.5
-              - 5.6
-              - 5.7
-              - 5.8
-              - 5.9
-              - 6
-              - 6.0
-              - 6.1
-              - 6.2
-              - 6.3
-              - 6.4
-              - 6.5
-              - 6.6
-              - 6.7
-              - 6.8
-              - 6.9
-              - 7
-              - 7.0
-              - 7.1
-              - 7.2
-              - 7.3
-              - 7.4
-              - 7.5
-              - 7.6
-              - 7.7
-              - 7.8
-              - 7.9
-              - 8
-              - 8.0
-              - 8.1
-              - 8.2
-              - 8.3
-              - 8.4
-              - 8.5
-              - 8.6
-              - 8.7
-              - 8.8
-              - 8.9
-        State: ENABLED
-        Targets:
-            - 
-              Arn: !Ref NotificationTopic
-              Id: TargetSNSTopic
-              InputTransformer:
-                InputPathsMap:
-                  severity: $.detail.severity
-                  Finding_ID: $.detail.id
-                  instanceId: $.detail.resource.instanceDetails.instanceId
-                  port: $.detail.service.action.networkConnectionAction.localPortDetails.port
-                  eventFirstSeen: $.detail.service.eventFirstSeen
-                  eventLastSeen: $.detail.service.eventLastSeen
-                  count: $.detail.service.count
-                  Finding_Type: $.detail.type
-                  region: $.region
-                  Finding_description: $.detail.description
-                InputTemplate: |
-                  "GuardDuty finding type <Finding_Type>"
-                  "Severity Level: <severity>"
-                  "Region: <region>"
-                  "Description: <Finding_description>"
-                  "Instance: <instanceId>"
-                  "Port: <port>"
-                  ""
-                  "The first attempt was on <eventFirstSeen> and the most recent attempt on <eventLastSeen>."
-                  "The total occurrence is <count>."
-                  ""
-                  "For more details open the GuardDuty console at https://console.aws.amazon.com/guardduty/home?region=<region>#/findings?search=id%3D<Finding_ID>"
+      Description: GuardDuty Event Rule
+      EventPattern:
+        source:
+          - aws.guardduty
+        detail-type:
+          - GuardDuty Finding
+        detail:
+          severity:
+            - 4
+            - 4.0
+            - 4.1
+            - 4.2
+            - 4.3
+            - 4.4
+            - 4.5
+            - 4.6
+            - 4.7
+            - 4.8
+            - 4.9
+            - 5
+            - 5.0
+            - 5.1
+            - 5.2
+            - 5.3
+            - 5.4
+            - 5.5
+            - 5.6
+            - 5.7
+            - 5.8
+            - 5.9
+            - 6
+            - 6.0
+            - 6.1
+            - 6.2
+            - 6.3
+            - 6.4
+            - 6.5
+            - 6.6
+            - 6.7
+            - 6.8
+            - 6.9
+            - 7
+            - 7.0
+            - 7.1
+            - 7.2
+            - 7.3
+            - 7.4
+            - 7.5
+            - 7.6
+            - 7.7
+            - 7.8
+            - 7.9
+            - 8
+            - 8.0
+            - 8.1
+            - 8.2
+            - 8.3
+            - 8.4
+            - 8.5
+            - 8.6
+            - 8.7
+            - 8.8
+            - 8.9
+      State: ENABLED
+      Targets:
+        - Arn: !Ref NotificationTopic
+          Id: TargetSNSTopic
+          InputTransformer:
+            InputPathsMap:
+              severity: $.detail.severity
+              Finding_ID: $.detail.id
+              instanceId: $.detail.resource.instanceDetails.instanceId
+              port: $.detail.service.action.networkConnectionAction.localPortDetails.port
+              eventFirstSeen: $.detail.service.eventFirstSeen
+              eventLastSeen: $.detail.service.eventLastSeen
+              count: $.detail.service.count
+              Finding_Type: $.detail.type
+              region: $.region
+              Finding_description: $.detail.description
+            InputTemplate: |
+              "GuardDuty finding type <Finding_Type>"
+              "Severity Level: <severity>"
+              "Region: <region>"
+              "Description: <Finding_description>"
+              "Instance: <instanceId>"
+              "Port: <port>"
+              ""
+              "The first attempt was on <eventFirstSeen> and the most recent attempt on <eventLastSeen>."
+              "The total occurrence is <count>."
+              ""
+              "For more details open the GuardDuty console at https://console.aws.amazon.com/guardduty/home?region=<region>#/findings?search=id%3D<Finding_ID>"
 
-######################################################################################################################################
-# Security Hub
-######################################################################################################################################
+  ######################################################################################################################################
+  # Security Hub
+  ######################################################################################################################################
 
   SecurityHubHub:
     Type: "AWS::SecurityHub::Hub"
@@ -206,90 +203,88 @@ Resources:
     Condition: SendSecurityHubEvents
     Type: AWS::Events::Rule
     Properties:
-        Description: GuardDuty Event Rule
-        EventPattern:
-          source:
-            - aws.securityhub
-          detail-type:
-            - Security Hub Findings - Imported
-          detail:
-            findings:
-              Compliance:
-                Status:
-                  - FAILED
-        State: ENABLED
-        Targets:
-            - 
-              Arn: !Ref NotificationTopic
-              Id: TargetSNSTopic
-              InputTransformer:
-                InputPathsMap:
-                  findingTime: $.detail.findings[0].updatedAt
-                  findingType: $.detail.findings[0].Types[0]
-                  findingId: $.detail.findings[0].Resources[0].Region
-                  findingTitle: $.detail.findings[0].Title
-                  findingDescription: $.detail.findings[0].Description
-                  complianceStatus: $.detail.findings[0].Compliance.Status
-                  affectedResources: $.detail.findings[0].Resources
-                  recommendationText: $.detail.findings[0].Recommendation.Text
-                  recommendationUrl: $.detail.findings[0].Recommendation.Url
-                InputTemplate: |
-                  "<findingTitle>"
-                  "Finding: <findingType>"
-                  "Date/Time: <findingTime>"
-                  "Finding ID: <findingId>"
-                  "Compliance Status: <complianceStatus>"
-                  "Description: <findingDescription>"
-                  ""
-                  "Affected Resource:"
-                  "<affectedResources>"
-                  ""
-                  "<recommendationText>"
-                  "<recommendationUrl>"
+      Description: GuardDuty Event Rule
+      EventPattern:
+        source:
+          - aws.securityhub
+        detail-type:
+          - Security Hub Findings - Imported
+        detail:
+          findings:
+            Compliance:
+              Status:
+                - FAILED
+      State: ENABLED
+      Targets:
+        - Arn: !Ref NotificationTopic
+          Id: TargetSNSTopic
+          InputTransformer:
+            InputPathsMap:
+              findingTime: $.detail.findings[0].updatedAt
+              findingType: $.detail.findings[0].Types[0]
+              findingId: $.detail.findings[0].Resources[0].Region
+              findingTitle: $.detail.findings[0].Title
+              findingDescription: $.detail.findings[0].Description
+              complianceStatus: $.detail.findings[0].Compliance.Status
+              affectedResources: $.detail.findings[0].Resources
+              recommendationText: $.detail.findings[0].Recommendation.Text
+              recommendationUrl: $.detail.findings[0].Recommendation.Url
+            InputTemplate: |
+              "<findingTitle>"
+              "Finding: <findingType>"
+              "Date/Time: <findingTime>"
+              "Finding ID: <findingId>"
+              "Compliance Status: <complianceStatus>"
+              "Description: <findingDescription>"
+              ""
+              "Affected Resource:"
+              "<affectedResources>"
+              ""
+              "<recommendationText>"
+              "<recommendationUrl>"
 
   SecurityHubInsightsCWEvent:
     Condition: SendSecurityHubEvents
     Type: AWS::Events::Rule
     Properties:
-        Description: GuardDuty Event Rule
-        EventPattern:
-          source:
-            - aws.securityhub
-          detail-type:
-            - Security Hub Insight Results
-          detail:
-            findings:
-              Compliance:
-                Status:
-                  - FAILED
-        State: ENABLED
-        Targets:
-            - 
-              Arn: !Ref NotificationTopic
-              Id: TargetSNSTopic
-              InputTransformer:
-                InputPathsMap:
-                  insightTime: $.time
-                  actionName: $.detail.actionName
-                  actionDescription: $.detail.actionDescription
-                  insightArn: $.detail.insightArn
-                  insightName: $.detail.insightName
-                  resultType: $.detail.resultType
-                  insightResults: $.detail.insightResults
-                InputTemplate: |
-                  "<insightName>"
-                  "Result Type: <resultType>"
-                  "Date/Time: <insightTime>"
-                  "Insight ARN: <insightArn>"
-                  "Action Name: <actionName>"
-                  "Action Description: <actionDescription>"
-                  ""
-                  "Insight Results:"
-                  "<insightResults>"
+      Description: GuardDuty Event Rule
+      EventPattern:
+        source:
+          - aws.securityhub
+        detail-type:
+          - Security Hub Insight Results
+        detail:
+          findings:
+            Compliance:
+              Status:
+                - FAILED
+      State: ENABLED
+      Targets:
+        - Arn: !Ref NotificationTopic
+          Id: TargetSNSTopic
+          InputTransformer:
+            InputPathsMap:
+              insightTime: $.time
+              actionName: $.detail.actionName
+              actionDescription: $.detail.actionDescription
+              insightArn: $.detail.insightArn
+              insightName: $.detail.insightName
+              resultType: $.detail.resultType
+              insightResults: $.detail.insightResults
+            InputTemplate: |
+              "<insightName>"
+              "Result Type: <resultType>"
+              "Date/Time: <insightTime>"
+              "Insight ARN: <insightArn>"
+              "Action Name: <actionName>"
+              "Action Description: <actionDescription>"
+              ""
+              "Insight Results:"
+              "<insightResults>"
 
-######################################################################################################################################
-# Notifications
-######################################################################################################################################
+  ######################################################################################################################################
+  # Notifications
+  ######################################################################################################################################
 
   NotificationTopic:
     Type: AWS::SNS::Topic
@@ -298,18 +293,18 @@ Resources:
 
   NotificationTopicPolicy:
     Type: AWS::SNS::TopicPolicy
-    Properties: 
+    Properties:
       PolicyDocument:
         Id: SecurityNotificationPolicy
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Sid: AllowCWEPublish
-          Effect: Allow
-          Principal:
-            Service:
-              - events.amazonaws.com
-          Action: sns:Publish
-          Resource: !Ref NotificationTopic
+          - Sid: AllowCWEPublish
+            Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref NotificationTopic
       Topics:
         - !Ref NotificationTopic
 
