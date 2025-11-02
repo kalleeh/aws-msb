@@ -21,11 +21,8 @@ python scripts/check_aws_account.py
 # Deploy Essential tier (~$50/month)
 cdk deploy --context tier=essential --context email=security@company.com
 
-# Deploy Standard tier (~$150/month)
-cdk deploy --context tier=standard --context email=security@company.com
-
-# Deploy Enhanced tier with auto-remediation (~$300/month)
-cdk deploy --context tier=enhanced --context email=security@company.com
+# Post-deployment setup (IAM password policy)
+./scripts/post_deploy_setup.sh
 ```
 
 **See [docs/deployment_guide.md](docs/deployment_guide.md) for detailed instructions.**

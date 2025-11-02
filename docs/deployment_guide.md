@@ -60,6 +60,22 @@ cdk deploy --context tier=standard --context email=security@company.com
 cdk deploy --context tier=enhanced --context email=security@company.com
 ```
 
+### 5. Post-Deployment Configuration
+
+Some security controls cannot be configured via CloudFormation and require manual setup:
+
+```bash
+# Run post-deployment setup script
+./scripts/post_deploy_setup.sh
+```
+
+This configures:
+- **IAM Password Policy** (CIS IAM.15, IAM.16) - Enforces strong passwords for IAM users
+
+**Note**: If you use AWS SSO/IAM Identity Center for authentication, the password policy doesn't apply.
+
+---
+
 ## What Gets Deployed
 
 ### Essential Tier (~$50/month)
