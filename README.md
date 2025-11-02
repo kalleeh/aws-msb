@@ -6,8 +6,6 @@
 
 Simple, cost-optimized security baseline for small AWS environments using AWS CDK.
 
-> **⚠️ DEPRECATION NOTICE:** The legacy multi-stack architecture is deprecated. See [DEPRECATION.md](DEPRECATION.md) for details. Use the single-stack architecture below.
-
 ---
 
 ## Quick Start
