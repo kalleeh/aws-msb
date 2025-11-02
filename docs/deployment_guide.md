@@ -70,6 +70,7 @@ Some security controls cannot be configured via CloudFormation and require manua
 ```
 
 This configures:
+- **Security Contact Information** (CIS Account.1) - AWS can reach you for security issues
 - **IAM Password Policy** (CIS IAM.15, IAM.16) - Enforces strong passwords for IAM users
 
 **Note**: If you use AWS SSO/IAM Identity Center for authentication, the password policy doesn't apply.

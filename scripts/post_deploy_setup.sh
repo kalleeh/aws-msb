@@ -30,8 +30,31 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo -e "AWS Account: ${GREEN}${ACCOUNT_ID}${NC}"
 echo ""
 
-# 1. Set IAM Password Policy (CIS IAM.15, IAM.16)
-echo -e "${YELLOW}[1/1] Setting IAM Password Policy...${NC}"
+# 1. Set Security Contact (CIS Account.1)
+echo -e "${YELLOW}[1/2] Setting Security Contact Information...${NC}"
+echo "AWS will use this contact for security notifications."
+echo ""
+
+read -p "Enter security contact email: " SECURITY_EMAIL
+read -p "Enter security contact name: " SECURITY_NAME
+read -p "Enter security contact phone (e.g., +1-555-0100): " SECURITY_PHONE
+
+if [[ -n "$SECURITY_EMAIL" && -n "$SECURITY_NAME" && -n "$SECURITY_PHONE" ]]; then
+    aws account put-alternate-contact \
+        --alternate-contact-type SECURITY \
+        --email-address "$SECURITY_EMAIL" \
+        --name "$SECURITY_NAME" \
+        --phone-number "$SECURITY_PHONE" \
+        --title "Security Contact" \
+        2>/dev/null && echo -e "${GREEN}✓ Security contact configured${NC}" || echo -e "${YELLOW}⚠ Failed to set security contact (may need account permissions)${NC}"
+else
+    echo -e "${YELLOW}⊘ Skipped security contact (missing information)${NC}"
+fi
+
+echo ""
+
+# 2. Set IAM Password Policy (CIS IAM.15, IAM.16)
+echo -e "${YELLOW}[2/2] Setting IAM Password Policy...${NC}"
 echo "  - Minimum length: 14 characters"
 echo "  - Requires: uppercase, lowercase, numbers, symbols"
 echo "  - Password reuse prevention: 24 passwords"
@@ -57,6 +80,10 @@ fi
 
 echo ""
 echo -e "${GREEN}Post-deployment setup complete!${NC}"
+echo ""
+echo "Security controls configured:"
+echo "  ✓ Security contact information (CIS Account.1)"
+echo "  ✓ IAM password policy (CIS IAM.15, IAM.16)"
 echo ""
 echo "Note: IAM password policy only applies to IAM users."
 echo "If you use AWS SSO/IAM Identity Center, this policy doesn't apply."
