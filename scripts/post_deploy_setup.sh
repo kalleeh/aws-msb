@@ -53,8 +53,74 @@ fi
 
 echo ""
 
-# 2. Set IAM Password Policy (CIS IAM.15, IAM.16)
-echo -e "${YELLOW}[2/2] Setting IAM Password Policy...${NC}"
+# 2. Create AWS Support Role (CIS IAM.18)
+echo -e "${YELLOW}[2/4] Creating AWS Support Role...${NC}"
+echo "This allows AWS Support to access your account when you create support cases."
+echo ""
+
+read -p "Create AWS Support role? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    # Check if role already exists
+    if aws iam get-role --role-name AWSSupportAccess &>/dev/null; then
+        echo -e "${YELLOW}⊘ AWSSupportAccess role already exists${NC}"
+    else
+        # Create trust policy
+        TRUST_POLICY='{
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {"AWS": "arn:aws:iam::'$ACCOUNT_ID':root"},
+            "Action": "sts:AssumeRole"
+          }]
+        }'
+        
+        aws iam create-role \
+            --role-name AWSSupportAccess \
+            --assume-role-policy-document "$TRUST_POLICY" \
+            --description "Allows AWS Support to access account for support cases" \
+            &>/dev/null && \
+        aws iam attach-role-policy \
+            --role-name AWSSupportAccess \
+            --policy-arn arn:aws:iam::aws:policy/AWSSupportAccess \
+            &>/dev/null && \
+        echo -e "${GREEN}✓ AWS Support role created${NC}" || \
+        echo -e "${RED}✗ Failed to create support role${NC}"
+    fi
+else
+    echo -e "${YELLOW}⊘ Skipped AWS Support role${NC}"
+fi
+
+echo ""
+
+# 3. Delete Expired SSL Certificates (CIS IAM.26)
+echo -e "${YELLOW}[3/4] Checking for Expired SSL Certificates...${NC}"
+
+EXPIRED_CERTS=$(aws iam list-server-certificates --query 'ServerCertificateMetadataList[?Expiration<`'$(date -u +%Y-%m-%d)'`].ServerCertificateName' --output text 2>/dev/null)
+
+if [[ -n "$EXPIRED_CERTS" ]]; then
+    echo "Found expired certificates:"
+    echo "$EXPIRED_CERTS" | tr '\t' '\n' | sed 's/^/  - /'
+    echo ""
+    read -p "Delete expired certificates? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        for cert in $EXPIRED_CERTS; do
+            aws iam delete-server-certificate --server-certificate-name "$cert" 2>/dev/null && \
+            echo -e "${GREEN}✓ Deleted $cert${NC}" || \
+            echo -e "${RED}✗ Failed to delete $cert${NC}"
+        done
+    else
+        echo -e "${YELLOW}⊘ Skipped certificate deletion${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ No expired certificates found${NC}"
+fi
+
+echo ""
+
+# 4. Set IAM Password Policy (CIS IAM.15, IAM.16)
+echo -e "${YELLOW}[4/4] Setting IAM Password Policy...${NC}"
 echo "  - Minimum length: 14 characters"
 echo "  - Requires: uppercase, lowercase, numbers, symbols"
 echo "  - Password reuse prevention: 24 passwords"
@@ -83,6 +149,8 @@ echo -e "${GREEN}Post-deployment setup complete!${NC}"
 echo ""
 echo "Security controls configured:"
 echo "  ✓ Security contact information (CIS Account.1)"
+echo "  ✓ AWS Support role (CIS IAM.18)"
+echo "  ✓ Expired certificate cleanup (CIS IAM.26)"
 echo "  ✓ IAM password policy (CIS IAM.15, IAM.16)"
 echo ""
 echo "Note: IAM password policy only applies to IAM users."

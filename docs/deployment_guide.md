@@ -71,6 +71,8 @@ Some security controls cannot be configured via CloudFormation and require manua
 
 This configures:
 - **Security Contact Information** (CIS Account.1) - AWS can reach you for security issues
+- **AWS Support Role** (CIS IAM.18) - Allows AWS Support to help with support cases
+- **Expired Certificate Cleanup** (CIS IAM.26) - Removes expired SSL certificates
 - **IAM Password Policy** (CIS IAM.15, IAM.16) - Enforces strong passwords for IAM users
 
 **Note**: If you use AWS SSO/IAM Identity Center for authentication, the password policy doesn't apply.

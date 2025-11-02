@@ -37,7 +37,7 @@ cdk deploy --context tier=essential --context email=security@company.com
 ✅ **Multi-Region Coverage** - CloudTrail captures events from all regions (all tiers)  
 ✅ **Cross-Region Aggregation** - Security Hub aggregates findings from all regions (Standard+)  
 ✅ **Service-Linked Roles** - Uses AWS-managed roles (no custom IAM management)  
-✅ **70% Automated** - 28/40 CIS v5.0 controls automated  
+✅ **80% Automated** - 32/40 CIS v5.0 controls automated (30 via CDK + 4 via post-deploy script)  
 ✅ **Auto-Remediation** - Config auto-remediation with AWS-managed SSM documents (Enhanced tier)  
 ✅ **No Custom Lambda** - Uses AWS-managed services only  
 
@@ -70,8 +70,10 @@ Everything in Standard, plus:
 ## Compliance Coverage
 
 **CIS AWS Foundations Benchmark v5.0:**
-- 28/40 controls (70%) automated
-- 12/40 controls (30%) manual (IAM MFA, access keys, etc.)
+- 32/40 controls (80%) automated
+  - 28 controls via CDK (IaC)
+  - 4 controls via post-deployment script (CLI)
+- 8/40 controls (20%) require manual action (root MFA, user MFA, etc.)
 
 **AWS Foundational Security Best Practices:**
 - Full coverage for automated controls
