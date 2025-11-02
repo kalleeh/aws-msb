@@ -36,6 +36,7 @@ cdk deploy --context tier=enhanced --context email=security@company.com
 
 ✅ **Single Stack Architecture** - Deploy in 5 minutes with one command  
 ✅ **Security Hub CSPM** - CIS AWS Foundations v5.0 + AWS FSBP standards  
+✅ **Preventative Controls** - Account-level S3 block + EBS encryption by default  
 ✅ **Multi-Region Coverage** - CloudTrail captures events from all regions (all tiers)  
 ✅ **Cross-Region Aggregation** - Security Hub aggregates findings from all regions (Standard+)  
 ✅ **Service-Linked Roles** - Uses AWS-managed roles (no custom IAM management)  
@@ -48,6 +49,7 @@ cdk deploy --context tier=enhanced --context email=security@company.com
 ## What Gets Deployed
 
 ### Essential Tier (~$50/month)
+- **Preventative Controls**: Account-level S3 block public access + EBS encryption by default
 - Security Hub with CIS v5.0 + AWS FSBP
 - AWS Config with service-linked role
 - CloudTrail (multi-region, 90-day retention)
@@ -87,6 +89,7 @@ Everything in Standard, plus:
 
 ```
 Essential Tier (Core Security)
+  ├── Preventative Controls (account-level S3 block + EBS encryption)
   ├── Security Hub CSPM (CIS v5.0 + FSBP)
   ├── AWS Config (service-linked role)
   ├── CloudTrail (multi-region, encrypted)

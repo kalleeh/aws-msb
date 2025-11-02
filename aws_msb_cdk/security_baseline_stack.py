@@ -3,6 +3,7 @@ from aws_cdk import (
     Stack,
     Duration,
     RemovalPolicy,
+    custom_resources as cr,
     aws_securityhub as securityhub,
     aws_config as config,
     aws_guardduty as guardduty,
@@ -33,6 +34,7 @@ class SecurityBaselineStack(Stack):
         self.notification_email = notification_email
 
         # Essential tier - core security controls
+        self._setup_preventative_controls()
         self._setup_kms()
         self._setup_cloudtrail()
         self._setup_config()
@@ -48,6 +50,59 @@ class SecurityBaselineStack(Stack):
         # Enhanced tier - automated remediation
         if tier == "enhanced":
             self._setup_auto_remediation()
+
+    def _setup_preventative_controls(self):
+        """Configure account-wide preventative security controls"""
+        # Account-level S3 Block Public Access (CIS S3.8)
+        cr.AwsCustomResource(
+            self,
+            "S3AccountPublicAccessBlock",
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
+            ),
+            on_create=cr.AwsSdkCall(
+                service="S3Control",
+                action="putPublicAccessBlock",
+                parameters={
+                    "AccountId": self.account,
+                    "PublicAccessBlockConfiguration": {
+                        "BlockPublicAcls": True,
+                        "IgnorePublicAcls": True,
+                        "BlockPublicPolicy": True,
+                        "RestrictPublicBuckets": True,
+                    },
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("S3AccountBlock"),
+            ),
+            on_update=cr.AwsSdkCall(
+                service="S3Control",
+                action="putPublicAccessBlock",
+                parameters={
+                    "AccountId": self.account,
+                    "PublicAccessBlockConfiguration": {
+                        "BlockPublicAcls": True,
+                        "IgnorePublicAcls": True,
+                        "BlockPublicPolicy": True,
+                        "RestrictPublicBuckets": True,
+                    },
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("S3AccountBlock"),
+            ),
+        )
+        
+        # EBS Encryption by Default (CIS EC2.7)
+        cr.AwsCustomResource(
+            self,
+            "EBSEncryptionByDefault",
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
+            ),
+            on_create=cr.AwsSdkCall(
+                service="EC2",
+                action="enableEbsEncryptionByDefault",
+                physical_resource_id=cr.PhysicalResourceId.of("EBSEncryption"),
+            ),
+        )
 
     def _setup_kms(self):
         """Create KMS key for encryption"""
