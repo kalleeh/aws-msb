@@ -1,61 +1,44 @@
-# AWS MSB CDK Documentation
+# Documentation
 
-This directory contains documentation for the AWS Minimum Security Baseline (MSB) CDK implementation. Below is a guide to the documentation files and their purposes.
+## Core Documentation (Stable)
 
-## Core Documentation Files
+These docs are maintained with the code and should stay in sync:
 
-| File | Purpose |
-|------|---------|
-| [compliance_matrix.json](compliance_matrix.json) | **Source of truth** - JSON data mapping all security controls to compliance frameworks |
-| [compliance_report.html](compliance_report.html) | **Interactive dashboard** - Visual report showing test coverage and implementation details |
-| [untested_controls.md](untested_controls.md) | Explains why certain controls are not covered by automated tests |
+- **[deployment_guide.md](deployment_guide.md)** - Step-by-step deployment instructions
+- **[architecture.md](architecture.md)** - System design, components, multi-region setup
+- **[testing_guide.md](testing_guide.md)** - Running tests, validation, pre-deployment checks
 
-## Implementation Documentation
+## Reference Documentation (Stable)
 
-| File | Purpose |
-|------|---------|
-| [control_implementation_details.md](control_implementation_details.md) | Technical details on how each security control is implemented in CDK |
-| [security_control_types.md](security_control_types.md) | Categorizes controls by type (preventative, detective, etc.) |
-| [development_guide.md](development_guide.md) | Guide for developers working on the project |
+These provide detailed reference information:
 
-## Compliance Documentation
+- **[compliance_matrix.md](compliance_matrix.md)** - CIS v5.0 and FSBP control mappings
+- **[cis_v5_control_analysis.md](cis_v5_control_analysis.md)** - Detailed CIS control breakdown (28 automated, 12 manual)
 
-| File | Purpose |
-|------|---------|
-| [compliance_testing.md](compliance_testing.md) | Explains the testing framework and methodology |
-| [residual_risk.md](residual_risk.md) | Assessment of security controls not fully implemented |
-| [programmatic_controls.md](programmatic_controls.md) | Additional controls that can be added to address residual risk |
+## Development Documentation
 
-## Legacy/Reference Files
+For contributors:
 
-| File | Purpose |
-|------|---------|
-| [compliance_matrix.md](compliance_matrix.md) | Human-readable version of the compliance matrix (generated from JSON) |
-| [compliance_report.md](compliance_report.md) | Text-based summary of compliance test results |
+- **[development_guide.md](development_guide.md)** - Project structure, coding standards, contribution workflow
+- **[COMMIT_GUIDELINES.md](COMMIT_GUIDELINES.md)** - Git commit message format
 
-## Using the Documentation
+## External References
 
-1. Start with the **compliance_report.html** for a visual overview of the security controls and test coverage
-2. Refer to **control_implementation_details.md** to understand how specific controls are implemented
-3. Check **untested_controls.md** and **residual_risk.md** to understand security gaps
-4. Use **development_guide.md** when contributing to the project
+Link to official AWS documentation (don't duplicate):
 
-## File Relationships
+- **CIS AWS Foundations Benchmark v5.0**: https://docs.aws.amazon.com/securityhub/latest/userguide/cis-aws-foundations-benchmark.html
+- **AWS FSBP**: https://docs.aws.amazon.com/securityhub/latest/userguide/fsbp-standard.html
+- **Security Hub Cross-Region Aggregation**: https://docs.aws.amazon.com/securityhub/latest/userguide/finding-aggregation.html
+- **CloudTrail Multi-Region**: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-trail-organization.html
+- **AWS Config Service-Linked Role**: https://docs.aws.amazon.com/config/latest/developerguide/using-service-linked-roles.html
 
-```
-compliance_matrix.json  ──────┐
-       │                      │
-       ▼                      ▼
-compliance_matrix.md    generate_html_report.py
-                              │
-                              ▼
-test_compliance.py  ────► compliance_report.html
-       │                      │
-       ▼                      ▼
-untested_controls.md    compliance_report.md
-```
+---
 
-- **compliance_matrix.json** is the source of truth for all controls
-- **generate_html_report.py** creates the HTML dashboard from test results and the matrix
-- **test_compliance.py** contains the actual compliance tests
-- Documentation files explain different aspects of the implementation and testing
+## Quick Start
+
+New to the project? Start here:
+
+1. Read [../README.md](../README.md) for overview
+2. Follow [deployment_guide.md](deployment_guide.md) to deploy
+3. Review [architecture.md](architecture.md) to understand the design
+4. Check [compliance_matrix.md](compliance_matrix.md) for control coverage
